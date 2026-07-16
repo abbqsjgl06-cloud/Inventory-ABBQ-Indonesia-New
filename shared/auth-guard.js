@@ -79,9 +79,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             })
             .then(function () {
-                _injectUserBadge(user.email, window.CURRENT_ROLE);
+                _injectUserBadge(user.email, window.CURRENT_ROLE, window.CURRENT_OUTLET_ID);
                 _startPresenceHeartbeat(user.email, window.CURRENT_ROLE);
                 _watchPresenceCount(user.email);
+                if (typeof window.initChatWidget === "function") {
+                    window.initChatWidget(user.email, window.CURRENT_ROLE, window.CURRENT_OUTLET_ID);
+                }
                 document.dispatchEvent(new CustomEvent("authReady", {
                     detail: { role: window.CURRENT_ROLE, email: user.email, outletId: window.CURRENT_OUTLET_ID }
                 }));
@@ -156,7 +159,7 @@ function _injectOutletSwitcher(currentOutletId) {
    (Admin/User) yang sedang login, di semua
    halaman yang memuat auth-guard.js.
 ========================================== */
-function _injectUserBadge(email, role) {
+function _injectUserBadge(email, role, outletId) {
     if (document.getElementById("authUserBadge")) return;
 
     // Turunkan posisi badge kalau halaman index utama sudah punya
@@ -203,6 +206,24 @@ function _injectUserBadge(email, role) {
 
     textWrap.appendChild(text);
     textWrap.appendChild(subText);
+
+    // Non-admin: tampilkan status outlet yang terdeteksi. Ini sengaja
+    // dibuat MENCOLOK kalau belum di-set, karena kondisi ini persis yang
+    // menyebabkan akun melihat data outlet lain (belum difilter sama
+    // sekali karena tidak tahu harus filter ke outlet mana).
+    if (!isAdmin) {
+        var outletLine = document.createElement("span");
+        outletLine.id = "authUserBadgeOutlet";
+        outletLine.style.cssText = "font-size:9px;font-weight:700;white-space:nowrap;";
+        if (outletId) {
+            outletLine.style.opacity = ".85";
+            outletLine.textContent = "🏬 " + outletId;
+        } else {
+            outletLine.style.color = "#FFD166";
+            outletLine.textContent = "⚠ Outlet belum di-set";
+        }
+        textWrap.appendChild(outletLine);
+    }
 
     badge.appendChild(dot);
     badge.appendChild(textWrap);
