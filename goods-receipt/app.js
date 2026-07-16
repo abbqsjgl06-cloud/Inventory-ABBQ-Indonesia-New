@@ -215,9 +215,36 @@ async function saveAllStaging(){
         createdAt: now
     }));
 
-    for(const r of records){
-        await InvDB.put("goodsReceipt", r);
+    try {
+        for(const r of records){
+            const result = await InvDB.put("goodsReceipt", r);
+            r._synced = result ? result._synced !== false : true;
+        }
+    } catch(err){
+        console.error("Gagal simpan barang masuk:", err);
+        toast("Gagal simpan. Cek koneksi internet lalu coba lagi - daftar item tidak dihapus.", "error");
+        return;
     }
+
+    const failedCount = records.filter(r => !r._synced).length;
+
+    if(failedCount > 0){
+        // Jangan hapus staging kalau ada yang gagal sinkron ke server -
+        // biarkan user retry, dan jangan tampilkan notifikasi hijau
+        // yang menyesatkan (data ini kemungkinan belum benar-benar
+        // tersimpan di server, cuma nyangkut di cache lokal HP ini).
+        // Item yang SUDAH sinkron dikeluarkan dari staging (supaya
+        // tidak ke-input dobel saat retry) - yang tersisa cuma yang
+        // gagal, tinggal tekan Simpan lagi.
+        const failedIndexes = new Set(records.map((r,i)=>r._synced?-1:i).filter(i=>i!==-1));
+        STAGING = STAGING.filter((s,i) => failedIndexes.has(i));
+        renderStaging();
+        toast(`⚠ ${failedCount} dari ${records.length} item BELUM tersinkron ke server (cek koneksi internet). Item yang gagal masih ada di daftar - tekan Simpan lagi setelah koneksi stabil.`, "error");
+        ALL_RECEIPTS.push(...records.filter(r => r._synced));
+        renderHistory();
+        return;
+    }
+
     ALL_RECEIPTS.push(...records);
 
     const count = STAGING.length;

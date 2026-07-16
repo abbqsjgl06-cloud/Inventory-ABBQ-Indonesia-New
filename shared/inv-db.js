@@ -138,8 +138,31 @@ const InvDB = (() => {
             data = { ...data, [kp]: docId };
         }
 
-        await col(storeName).doc(String(docId)).set(data);
-        return data;
+        const docRef = col(storeName).doc(String(docId));
+        await docRef.set(data);
+
+        // PENTING: promise dari .set() di atas selesai begitu data
+        // tersimpan di cache LOKAL HP (karena offline persistence
+        // aktif) - itu BUKAN jaminan sudah sampai ke server. Kalau
+        // koneksi lemah/putus saat itu, tulisan bisa "nyangkut" di HP
+        // dan baru sinkron nanti (atau tidak sama sekali kalau app
+        // ditutup duluan) - padahal user sudah lihat notifikasi
+        // "berhasil". Di sini kita verifikasi ke server secara
+        // eksplisit (dengan batas waktu 8 detik) supaya pemanggil bisa
+        // tahu & memberi tahu user kalau datanya BELUM benar-benar
+        // tersinkron, bukan diam-diam dianggap aman.
+        let synced = true;
+        try {
+            const serverDoc = await Promise.race([
+                docRef.get({ source: "server" }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000))
+            ]);
+            synced = !!(serverDoc && serverDoc.exists);
+        } catch (e) {
+            synced = false;
+        }
+
+        return { ...data, _synced: synced };
     }
 
     async function bulkPut(storeName, values) {
