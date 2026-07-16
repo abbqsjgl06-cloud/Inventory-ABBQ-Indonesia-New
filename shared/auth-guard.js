@@ -165,7 +165,10 @@ function _injectUserBadge(email, role) {
     var topOffset = hasBizDateBadge ? "62px" : "14px";
 
     var isAdmin = role === "admin";
-    var roleLabel = isAdmin ? "Admin" : "User";
+    // Non-admin accounts show their account name (the part before @) so
+    // it's clear which outlet/person is logged in - e.g.
+    // "sjgl@abbq-system.local" -> "SJGL". Admin badge stays generic.
+    var roleLabel = isAdmin ? "Admin" : String(email).split("@")[0].toUpperCase();
     var dotColor = isAdmin ? "#F2B400" : "#2E7D4F";
 
     var badge = document.createElement("div");
