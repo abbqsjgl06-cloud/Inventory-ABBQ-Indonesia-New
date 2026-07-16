@@ -27,6 +27,27 @@
     document.head.appendChild(style);
 })();
 
+/* ==========================================
+   AUTH_READY_PROMISE: dibuat SEKARANG (synchronous,
+   saat file ini pertama kali dieksekusi) supaya semua
+   script lain yang dimuat setelahnya - termasuk
+   inv-db.js - bisa langsung "await window.AUTH_READY_PROMISE"
+   sebelum baca window.CURRENT_OUTLET_ID.
+
+   Ini memperbaiki race condition: sebelumnya
+   window.CURRENT_OUTLET_ID baru terisi setelah beberapa
+   panggilan Firestore async selesai, tapi beberapa
+   halaman (mis. riwayat Stock Opname) sudah terlanjur
+   memanggil InvDB.getAll() lebih dulu di event
+   "DOMContentLoaded" - saat itu CURRENT_OUTLET_ID masih
+   null, sehingga query TIDAK difilter per outlet dan
+   akun manapun bisa melihat riwayat akun lain.
+========================================== */
+var _authReadyResolve;
+window.AUTH_READY_PROMISE = new Promise(function (resolve) {
+    _authReadyResolve = resolve;
+});
+
 function _authGuardLoginPath() {
     var depth = window.AUTH_GUARD_DEPTH || 0;
     var prefix = "";
@@ -79,6 +100,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             })
             .then(function () {
+                // CURRENT_OUTLET_ID sudah final di titik ini - resolve
+                // dulu SEBELUM badge/presence/chat widget (yang tidak
+                // krusial untuk query data) supaya halaman lain yang
+                // menunggu promise ini tidak tertunda tanpa perlu.
+                _authReadyResolve({ role: window.CURRENT_ROLE, email: user.email, outletId: window.CURRENT_OUTLET_ID });
                 _injectUserBadge(user.email, window.CURRENT_ROLE, window.CURRENT_OUTLET_ID);
                 _startPresenceHeartbeat(user.email, window.CURRENT_ROLE);
                 _watchPresenceCount(user.email);

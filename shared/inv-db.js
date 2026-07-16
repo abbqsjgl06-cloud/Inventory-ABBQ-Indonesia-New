@@ -59,6 +59,21 @@ const InvDB = (() => {
         return (typeof window !== "undefined" && window.CURRENT_OUTLET_ID) ? window.CURRENT_OUTLET_ID : null;
     }
 
+    // Tunggu auth-guard.js selesai menentukan window.CURRENT_OUTLET_ID
+    // sebelum melakukan operasi apa pun yang bergantung padanya (getAll,
+    // put, bulkPut, getByIndex, business date, dst). Tanpa ini, halaman
+    // yang memuat data lebih awal (mis. "DOMContentLoaded") bisa membaca
+    // CURRENT_OUTLET_ID = null (belum sempat diisi) dan akhirnya
+    // mengambil data SEMUA outlet, bukan cuma outlet-nya sendiri.
+    // Aman dipanggil berkali-kali - promise-nya cuma resolve sekali.
+    // Kalau halaman ini tidak pakai auth-guard.js sama sekali (mis. tidak
+    // ada window.AUTH_READY_PROMISE), langsung lanjut tanpa menunggu.
+    async function _waitForOutletReady() {
+        if (typeof window !== "undefined" && window.AUTH_READY_PROMISE) {
+            try { await window.AUTH_READY_PROMISE; } catch (e) { /* lanjut saja - fallback ke perilaku lama */ }
+        }
+    }
+
     function keyPathFor(storeName) {
         return KEY_PATHS[storeName] || "id";
     }
@@ -91,6 +106,7 @@ const InvDB = (() => {
     ====================================== */
 
     async function getAll(storeName) {
+        await _waitForOutletReady();
         const outletId = currentOutletId();
         if (OUTLET_SCOPED.has(storeName) && outletId) {
             const snap = await col(storeName).where("outletId", "==", outletId).get();
@@ -107,6 +123,7 @@ const InvDB = (() => {
     }
 
     async function put(storeName, value) {
+        await _waitForOutletReady();
         const kp = keyPathFor(storeName);
         let docId = value[kp];
         let data = value;
@@ -127,6 +144,7 @@ const InvDB = (() => {
 
     async function bulkPut(storeName, values) {
         if (!values || values.length === 0) return;
+        await _waitForOutletReady();
         const kp = keyPathFor(storeName);
         const CHUNK = 400; // Firestore batch limit is 500 writes
         const outletId = currentOutletId();
@@ -167,6 +185,7 @@ const InvDB = (() => {
     }
 
     async function getByIndex(storeName, indexName, value) {
+        await _waitForOutletReady();
         let q = col(storeName).where(indexName, "==", value);
         const outletId = currentOutletId();
         if (OUTLET_SCOPED.has(storeName) && outletId) {
@@ -245,6 +264,7 @@ const InvDB = (() => {
     }
 
     async function getBusinessDate() {
+        await _waitForOutletReady();
         const key = _businessDateKey();
         const val = await getSetting(key, null);
         if (val) return val;
@@ -254,6 +274,7 @@ const InvDB = (() => {
     }
 
     async function setBusinessDate(dateStr) {
+        await _waitForOutletReady();
         return setSetting(_businessDateKey(), dateStr);
     }
 
@@ -264,10 +285,12 @@ const InvDB = (() => {
     }
 
     async function getEodSnapshot(dateStr) {
+        await _waitForOutletReady();
         return get("eodSnapshots", _eodDocId(dateStr));
     }
 
     async function closeBusinessDay(dateStr, endingByCode, note, sessionIds) {
+        await _waitForOutletReady();
         const snapshot = {
             id: _eodDocId(dateStr),
             date: dateStr,
@@ -294,6 +317,7 @@ const InvDB = (() => {
     }
 
     async function reopenBusinessDay(dateStr) {
+        await _waitForOutletReady();
         await remove("eodSnapshots", _eodDocId(dateStr));
         await setBusinessDate(dateStr);
     }
