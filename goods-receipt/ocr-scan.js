@@ -354,7 +354,8 @@ function ocrMatchLabel(r) {
         case "exact": return `<small style="color:#1E7E34;">✓ cocok deskripsi persis</small>`;
         case "contains": return `<small style="color:#1C6B8C;">≈ deskripsi mengandung "${r.name}" - cek lagi</small>`;
         case "fuzzy": return `<small style="color:#B8720A;">≈ mirip "${r.name}" (skor rendah) - WAJIB dicek</small>`;
-        default: return `<small style="color:#C23B2E;">⚠ tidak ditemukan di Master Data - cek/ketik kode manual</small>`;
+        case "manual": return `<small style="color:#1E7E34;">✓ dipilih manual dari Master Data</small>`;
+        default: return `<small style="color:#C23B2E;">⚠ tidak ditemukan di Master Data - pilih manual di bawah</small>`;
     }
 }
 
@@ -375,12 +376,102 @@ function renderOcrReview() {
                 <div style="font-weight:600;">${r.name || "-"}</div>
                 ${r.ocrName && r.ocrName !== r.name ? `<small style="color:#666;">Teks asli OCR: "${r.ocrName}"</small><br>` : ""}
                 ${ocrMatchLabel(r)}
+                <br><button type="button" class="btn btn-ghost" style="padding:4px 8px;font-size:11px;width:auto;margin-top:4px;" onclick="ocrOpenPicker('${r.rowId}')">🔍 Pilih dari Master Data</button>
             </td>
             <td>${r.uom || "-"}</td>
             <td><input type="number" min="0" step="any" placeholder="0" value="${r.qty}" style="width:70px;" oninput="ocrUpdateQty('${r.rowId}', this.value)"></td>
             <td><button type="button" class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="ocrRemoveRow('${r.rowId}')">Hapus</button></td>
         </tr>
     `).join("");
+}
+
+/* ======================================
+   PICKER MANUAL - dropdown pencarian Master Data
+   dipakai kalau OCR gagal baca kode/deskripsi dengan benar
+   (mis. supplier tidak punya kolom kode, atau tulisan
+   tangan/pudar bikin OCR salah baca jadi teks acak).
+====================================== */
+
+let OCR_PICKER_ROW_ID = null;
+
+function ocrOpenPicker(rowId) {
+    OCR_PICKER_ROW_ID = rowId;
+
+    let overlay = document.getElementById("ocrPickerOverlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "ocrPickerOverlay";
+        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;";
+        overlay.innerHTML = `
+            <div style="background:var(--card,#fff);width:100%;max-height:75vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;">
+                <div style="padding:14px 16px 8px;">
+                    <div style="font-weight:700;margin-bottom:8px;">Pilih Item dari Master Data</div>
+                    <input type="text" id="ocrPickerSearch" placeholder="Ketik kode atau nama item..." autocomplete="off" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line,#ccc);">
+                </div>
+                <div id="ocrPickerList" style="overflow-y:auto;flex:1;padding:0 16px 16px;"></div>
+                <div style="padding:10px 16px;border-top:1px solid var(--line,#eee);">
+                    <button type="button" class="btn btn-ghost" style="width:100%;" onclick="ocrClosePicker()">Batal</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) ocrClosePicker(); });
+        document.getElementById("ocrPickerSearch").addEventListener("input", ocrRenderPickerList);
+    }
+
+    overlay.style.display = "flex";
+    const search = document.getElementById("ocrPickerSearch");
+    search.value = "";
+    ocrRenderPickerList();
+    setTimeout(() => search.focus(), 50);
+}
+
+function ocrClosePicker() {
+    const overlay = document.getElementById("ocrPickerOverlay");
+    if (overlay) overlay.style.display = "none";
+    OCR_PICKER_ROW_ID = null;
+}
+
+function ocrRenderPickerList() {
+    const list = document.getElementById("ocrPickerList");
+    const key = document.getElementById("ocrPickerSearch").value.trim().toLowerCase();
+
+    const matches = (key
+        ? MATERIALS.filter(m => String(m.code).toLowerCase().includes(key) || (m.name || "").toLowerCase().includes(key))
+        : MATERIALS
+    ).slice(0, 50);
+
+    if (matches.length === 0) {
+        list.innerHTML = `<div class="suggest-item" style="cursor:default;color:var(--muted);">Item tidak ditemukan</div>`;
+        return;
+    }
+
+    list.innerHTML = matches.map(m => `
+        <div class="suggest-item" data-code="${m.code}">
+            ${m.name}
+            <small>Kode ${m.code} · ${m.uom}</small>
+        </div>
+    `).join("");
+
+    list.querySelectorAll(".suggest-item[data-code]").forEach(el => {
+        el.addEventListener("click", () => {
+            const m = MATERIALS.find(x => String(x.code) === el.dataset.code);
+            if (m) ocrApplyPicked(m);
+        });
+    });
+}
+
+function ocrApplyPicked(material) {
+    const row = OCR_ROWS.find(r => r.rowId === OCR_PICKER_ROW_ID);
+    if (row) {
+        row.code = material.code;
+        row.name = material.name;
+        row.uom = material.uom;
+        row.matched = true;
+        row.matchLevel = "manual";
+    }
+    ocrClosePicker();
+    renderOcrReview();
 }
 
 function ocrUpdateCode(rowId, value) {
