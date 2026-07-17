@@ -29,6 +29,12 @@ async function handleOcrPhoto(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    if (typeof MATERIALS_LOADED !== "undefined" && !MATERIALS_LOADED) {
+        toast("Master Data belum selesai dimuat, tunggu sebentar lalu coba lagi", "error");
+        e.target.value = "";
+        return;
+    }
+
     const preview = document.getElementById("ocrPreview");
     const statusEl = document.getElementById("ocrStatus");
 
@@ -42,22 +48,45 @@ async function handleOcrPhoto(e) {
 
     OCR_ROWS = [];
     document.getElementById("ocrReviewWrap").style.display = "none";
+    ocrHideDebugText();
+
+    // Tesseract butuh download data bahasa (~10-15MB) dari internet di
+    // pemakaian pertama kalau belum ke-cache di HP ini. Kalau progres
+    // OCR belum juga sampai tahap "recognizing text" setelah beberapa
+    // detik, kemungkinan besar itu koneksi lemot, bukan hasil bacanya
+    // yang jelek - kasih tahu user supaya tidak salah kira.
+    let reachedRecognizing = false;
+    const slowNetworkTimer = setTimeout(() => {
+        if (!reachedRecognizing) {
+            statusEl.style.color = "#B8720A";
+            statusEl.textContent = "⏳ Masih memuat data OCR dari internet (butuh koneksi stabil di pemakaian pertama)... kalau koneksi lemot ini bisa lama. Tunggu atau coba lagi saat sinyal lebih baik.";
+        }
+    }, 8000);
 
     try {
         const result = await Tesseract.recognize(file, "eng", {
             logger: (m) => {
                 if (m.status === "recognizing text" && m.progress != null) {
+                    reachedRecognizing = true;
+                    statusEl.style.color = "#1C3D6B";
                     statusEl.textContent = `⏳ Membaca teks... ${Math.round(m.progress * 100)}%`;
                 }
             }
         });
+        clearTimeout(slowNetworkTimer);
 
         const text = result.data.text || "";
         const parsed = parseOcrText(text);
 
+        ocrShowDebugText(text);
+
         if (parsed.length === 0) {
             statusEl.style.color = "#8C2A1E";
-            statusEl.textContent = "⚠ Tidak ada baris item yang terbaca. Coba foto ulang lebih dekat/terang, atau tambah baris manual di bawah.";
+            if (text.trim().length < 5) {
+                statusEl.textContent = "⚠ OCR tidak berhasil membaca teks apa pun dari foto ini (kemungkinan foto kurang jelas/gelap, atau koneksi terputus saat memuat data OCR). Coba foto ulang lebih dekat & terang dengan koneksi lebih stabil, atau tambah baris manual di bawah.";
+            } else {
+                statusEl.textContent = "⚠ Ada teks terbaca tapi tidak ada baris item yang dikenali. Cek 'Lihat teks mentah hasil OCR' di bawah untuk lihat apa yang terbaca, atau tambah baris manual.";
+            }
         } else {
             statusEl.style.color = "#1E7E34";
             statusEl.textContent = `✓ ${parsed.length} baris terbaca. Cek & koreksi dulu sebelum ditambahkan ke daftar.`;
@@ -68,11 +97,41 @@ async function handleOcrPhoto(e) {
         renderOcrReview();
 
     } catch (err) {
+        clearTimeout(slowNetworkTimer);
         console.error(err);
+        const msg = String(err && err.message || err || "");
+        const isNetworkish = /fetch|network|failed to load|timeout|ECONN/i.test(msg);
         statusEl.style.color = "#8C2A1E";
-        statusEl.textContent = "Gagal memproses foto. Coba foto lain atau tambah baris manual di bawah.";
+        statusEl.textContent = isNetworkish
+            ? "⚠ Gagal memuat komponen OCR - kemungkinan besar karena koneksi internet terputus/lemot (OCR butuh download data ~10-15MB di pemakaian pertama). Coba lagi dengan WiFi/sinyal lebih stabil, atau tambah baris manual di bawah."
+            : "Gagal memproses foto. Coba foto lain atau tambah baris manual di bawah.";
         document.getElementById("ocrReviewWrap").style.display = "block";
     }
+}
+
+/* ======================================
+   DEBUG: tampilkan teks mentah hasil OCR apa adanya,
+   supaya user (atau kita nanti) bisa lihat PERSIS apa
+   yang terbaca kalau parsing/pencocokan gagal.
+====================================== */
+
+function ocrShowDebugText(text) {
+    let box = document.getElementById("ocrDebugBox");
+    if (!box) {
+        box = document.createElement("details");
+        box.id = "ocrDebugBox";
+        box.style.margin = "10px 0";
+        box.innerHTML = `<summary style="cursor:pointer;color:#1C3D6B;font-size:12px;">Lihat teks mentah hasil OCR</summary><pre id="ocrDebugText" style="white-space:pre-wrap;font-size:11px;background:#F5F5F0;padding:8px;border-radius:6px;max-height:200px;overflow:auto;"></pre>`;
+        const statusEl = document.getElementById("ocrStatus");
+        statusEl.parentNode.insertBefore(box, statusEl.nextSibling);
+    }
+    document.getElementById("ocrDebugText").textContent = text || "(kosong)";
+    box.style.display = "block";
+}
+
+function ocrHideDebugText() {
+    const box = document.getElementById("ocrDebugBox");
+    if (box) box.style.display = "none";
 }
 
 /* ======================================
