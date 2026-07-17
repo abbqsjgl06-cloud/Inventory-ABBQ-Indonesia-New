@@ -76,56 +76,228 @@ async function handleOcrPhoto(e) {
 }
 
 /* ======================================
-   PARSING - heuristik sederhana untuk format
-   tabel "No | Kode Barang | Nama Barang | UOM"
+   PARSING - baca baris tabel dari OCR.
+
+   Dokumen PO/DO dari supplier itu FORMATNYA BEDA-BEDA:
+   - Ada yang punya kolom "Supplier Code" (kadang kosong)
+   - Ada yang cuma "No | Deskripsi | Qty | Satuan" TANPA kode sama sekali
+     (paling umum - supplier biasa nulis manual pakai nama barang saja)
+
+   Makanya kode di bawah ini TIDAK mewajibkan kode ditemukan dulu.
+   Alur prioritas (sesuai cara kerja manusia baca DO):
+     1) Kalau ada token yang PERSIS cocok dengan salah satu kode di
+        Master Data -> pakai itu (paling pasti).
+     2) Kalau tidak ada kode, cocokkan DESKRIPSI ke nama item di Master
+        Data: persis sama > deskripsi mengandung/dikandung nama item
+        (mis. "KOL KUBIS PUTIH" mengandung kata "KOL") > mirip
+        (fuzzy, buat typo/singkatan/OCR salah baca huruf).
+
+   Qty SENGAJA tidak diambil dari OCR - hampir selalu ditulis tangan
+   (kadang berupa centang/coretan), jadi tetap wajib diisi manual oleh
+   user supaya tidak salah input.
 ====================================== */
 
+const OCR_NOISE_LINE_PATTERNS = [
+    /\bpo\.?\s*no\b/i, /\bdelivery order\b/i, /\bno\.?\s*do\b/i,
+    /\bkepada\b/i, /\bhormat kami\b/i, /\bditerima oleh\b/i, /\bcatatan\s*:/i,
+    /\baddress\b/i, /\btelp/i, /\bfax\b/i, /\bcontact\b/i, /\be-?mail\b/i,
+    /\bexpire date\b/i, /\bpayt\.?\s*terms\b/i, /\bcurrency\b/i,
+    /\bsupplier\s*code\b/i, /\bproduct\s*name\b/i, /\bdelivery\s*date\b/i,
+    /\bprice\s*\(/i, /^\s*total\s*$/i, /\buom\b/i, /\bpage\s*\d/i,
+    /^\s*no\.?\s*$/i, /\bdeskripsi\b/i, /\bsatuan\b/i, /^\s*tanggal\s*$/i,
+    /\bjl\.?\s/i, /\brt\s*\d{1,3}\b/i, /\brw\s*\d{1,3}\b/i
+];
+
+const OCR_UOM_REGEX = /\b(PAC|PAK|KG|CAR|CAN|BKU|PC|ROL|GR|ML|LTR|BTL|DUS|BOX|CTN|SAK|IKAT|BH|BUAH)\b/i;
+
+function ocrIsNoiseLine(line) {
+    return OCR_NOISE_LINE_PATTERNS.some(rx => rx.test(line));
+}
+
+function ocrStripDates(line) {
+    return line
+        .replace(/\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/g, " ")
+        .replace(/\b\d{1,2}\s+(jan|feb|mar|apr|mei|may|jun|jul|agu|aug|sep|okt|oct|nov|des|dec)\w*\s+\d{2,4}\b/ig, " ");
+}
+
+function ocrStripCurrency(line) {
+    // angka format ribuan pakai koma, mis. "13,000" / "39,000" - ini
+    // harga/total, bukan kode atau qty, buang supaya tidak ganggu.
+    return line.replace(/\b\d{1,3}(?:,\d{3})+\b/g, " ");
+}
+
 function parseOcrText(text) {
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-    const codeRegex = /\b(\d{5,7})\b/;
-    const uomRegex = /\b(PAC|KG|CAR|CAN|BKU|PC|ROL|GR|ML|LTR|BTL|DUS|BOX|CTN)\b/i;
+    const knownCodes = new Map();
+    MATERIALS.forEach(m => {
+        if (m.code) knownCodes.set(String(m.code).trim().toUpperCase(), m);
+    });
 
+    const rawLines = text.split("\n").map(l => l.trim()).filter(Boolean);
     const rows = [];
-    lines.forEach(line => {
-        const codeMatch = line.match(codeRegex);
-        if (!codeMatch) return;
 
-        const code = codeMatch[1];
-        let rest = line.slice(codeMatch.index + code.length).trim();
+    rawLines.forEach(rawLine => {
+        if (ocrIsNoiseLine(rawLine)) return;
 
-        let uom = "";
-        const uomMatch = rest.match(uomRegex);
-        if (uomMatch) {
-            uom = uomMatch[1].toUpperCase();
-            rest = rest.slice(0, uomMatch.index).trim();
+        let line = ocrStripDates(rawLine);
+        line = ocrStripCurrency(line);
+
+        // 1) kode item - token yang PERSIS cocok dengan Master Data
+        let codeHit = "";
+        line.split(/\s+/).filter(Boolean).forEach(tok => {
+            if (codeHit) return;
+            const clean = tok.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+            if (clean && knownCodes.has(clean)) codeHit = clean;
+        });
+        if (codeHit) {
+            line = line.replace(new RegExp("\\b" + codeHit + "\\b", "i"), " ");
         }
 
-        const name = rest.replace(/[^A-Za-z0-9 .\/\-]/g, " ").replace(/\s+/g, " ").trim();
-        if (!name && !uom) return; // baris kemungkinan cuma noise, lewati
+        // 2) satuan (UoM) - ambil kemunculan TERAKHIR di baris, karena
+        //    kolom "Satuan" ada di ujung baris; kalau ambil yang
+        //    pertama bisa salah kena ukuran kemasan di tengah deskripsi
+        //    (mis. "BREAD CRUMB UK 500 GR ... 2 PAC" -> yang benar PAC).
+        let uom = "";
+        const uomMatches = [...line.matchAll(new RegExp(OCR_UOM_REGEX.source, "gi"))];
+        if (uomMatches.length > 0) {
+            const lastMatch = uomMatches[uomMatches.length - 1];
+            uom = lastMatch[1].toUpperCase();
+            line = line.slice(0, lastMatch.index) + " " + line.slice(lastMatch.index + lastMatch[0].length);
+        }
 
-        rows.push({ code, name, uom });
+        // 3) buang nomor urut baris ("1 ", "12.", "3)")
+        line = line.replace(/^\s*\d{1,3}[.\)]?\s+/, " ");
+
+        // 4) buang semua angka murni sisanya (qty, harga, dll - selalu
+        //    diisi/dicek manual, tidak diambil dari OCR)
+        line = line.replace(/\b\d+(?:[.,]\d+)?\b/g, " ");
+
+        const name = line.replace(/[^A-Za-z0-9 .\/\-]/g, " ").replace(/\s+/g, " ").trim();
+        const nameWordCount = name ? name.split(" ").filter(Boolean).length : 0;
+
+        // baris 1 kata TANPA kode & TANPA satuan biasanya cuma noise
+        // (nama supplier, kop surat, tanda tangan, dst) - lewati.
+        if (!codeHit && !uom && nameWordCount < 2) return;
+        if (!name && !codeHit) return;
+
+        rows.push({ code: codeHit, name, uom });
     });
 
     return rows;
 }
 
+/* ======================================
+   PENCOCOKAN DESKRIPSI KE MASTER DATA (fuzzy)
+   dipakai kalau baris tidak punya kode item sama sekali.
+====================================== */
+
+function ocrNormalizeText(s) {
+    return String(s || "")
+        .toUpperCase()
+        .normalize("NFKD")
+        .replace(/[^A-Z0-9 ]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function ocrTokenize(s) {
+    return ocrNormalizeText(s).split(" ").filter(Boolean).map(t => {
+        // stemming ringan biar "CRUMB" vs "CRUMBS" tetap dianggap sama
+        return (t.length > 4 && t.endsWith("S")) ? t.slice(0, -1) : t;
+    });
+}
+
+function ocrDiceCoefficient(aTokens, bTokens) {
+    if (aTokens.length === 0 || bTokens.length === 0) return 0;
+    const aSet = new Set(aTokens);
+    const bSet = new Set(bTokens);
+    let common = 0;
+    aSet.forEach(t => { if (bSet.has(t)) common++; });
+    return (2 * common) / (aSet.size + bSet.size);
+}
+
+// Cari item Master Data yang paling cocok dengan sebuah teks deskripsi.
+// Mengembalikan {material, level, score} atau null kalau tidak ada yang
+// cukup mirip. level: "exact" > "contains" > "fuzzy".
+function ocrFindBestMaterialMatch(description) {
+    const descNorm = ocrNormalizeText(description);
+    if (!descNorm) return null;
+    const descTokens = ocrTokenize(description);
+
+    let best = null;
+    MATERIALS.forEach(m => {
+        const nameNorm = ocrNormalizeText(m.name);
+        if (!nameNorm) return;
+
+        let score = 0;
+        let level = "";
+
+        if (nameNorm === descNorm) {
+            score = 1.0;
+            level = "exact";
+        } else if (descNorm.includes(nameNorm) || nameNorm.includes(descNorm)) {
+            // mis. Master Data "KOL" ada di dalam deskripsi OCR
+            // "KOL KUBIS PUTIH" - makin dekat panjangnya makin yakin.
+            const shorter = nameNorm.length < descNorm.length ? nameNorm : descNorm;
+            const longer = nameNorm.length < descNorm.length ? descNorm : nameNorm;
+            score = 0.75 + 0.15 * (shorter.length / longer.length); // 0.75 - 0.90
+            level = "contains";
+        } else {
+            const nameTokens = ocrTokenize(m.name);
+            score = ocrDiceCoefficient(descTokens, nameTokens) * 0.7; // fuzzy, maks ~0.7
+            level = "fuzzy";
+        }
+
+        if (!best || score > best.score) best = { material: m, score, level };
+    });
+
+    if (!best || best.score < 0.35) return null; // kebedaan terlalu jauh, jangan dipaksa
+    return best;
+}
+
 function toOcrRow(parsed) {
     OCR_ROW_SEQ++;
-    const match = MATERIALS.find(m => String(m.code).trim() === String(parsed.code).trim());
+
+    let match = null;
+    let matchLevel = "none";
+
+    if (parsed.code) {
+        match = MATERIALS.find(m => String(m.code).trim().toUpperCase() === parsed.code);
+        if (match) matchLevel = "code";
+    }
+
+    if (!match && parsed.name) {
+        const best = ocrFindBestMaterialMatch(parsed.name);
+        if (best) {
+            match = best.material;
+            matchLevel = best.level;
+        }
+    }
+
     return {
         rowId: "ocr_" + OCR_ROW_SEQ,
-        code: parsed.code,
+        code: match ? match.code : (parsed.code || ""),
         ocrName: parsed.name,
         name: match ? match.name : parsed.name,
         uom: match ? match.uom : parsed.uom,
         qty: "",
-        matched: !!match
+        matched: !!match,
+        matchLevel
     };
 }
 
 /* ======================================
    REVIEW TABLE
 ====================================== */
+
+function ocrMatchLabel(r) {
+    switch (r.matchLevel) {
+        case "code": return `<small style="color:#1E7E34;">✓ cocok kode persis</small>`;
+        case "exact": return `<small style="color:#1E7E34;">✓ cocok deskripsi persis</small>`;
+        case "contains": return `<small style="color:#1C6B8C;">≈ deskripsi mengandung "${r.name}" - cek lagi</small>`;
+        case "fuzzy": return `<small style="color:#B8720A;">≈ mirip "${r.name}" (skor rendah) - WAJIB dicek</small>`;
+        default: return `<small style="color:#C23B2E;">⚠ tidak ditemukan di Master Data - cek/ketik kode manual</small>`;
+    }
+}
 
 function renderOcrReview() {
     const body = document.getElementById("ocrReviewBody");
@@ -142,7 +314,8 @@ function renderOcrReview() {
             </td>
             <td>
                 <div style="font-weight:600;">${r.name || "-"}</div>
-                ${!r.matched ? `<small style="color:#C23B2E;">⚠ Kode tidak dikenali di Master Data - cek/ketik ulang kode</small>` : `<small style="color:#1E7E34;">✓ cocok dengan Master Data</small>`}
+                ${r.ocrName && r.ocrName !== r.name ? `<small style="color:#666;">Teks asli OCR: "${r.ocrName}"</small><br>` : ""}
+                ${ocrMatchLabel(r)}
             </td>
             <td>${r.uom || "-"}</td>
             <td><input type="number" min="0" step="any" placeholder="0" value="${r.qty}" style="width:70px;" oninput="ocrUpdateQty('${r.rowId}', this.value)"></td>
@@ -166,8 +339,10 @@ function ocrCommitCode(rowId) {
     // to re-render now since they're done typing this cell.
     const row = OCR_ROWS.find(r => r.rowId === rowId);
     if (!row) return;
-    const match = MATERIALS.find(m => String(m.code).trim() === row.code);
+    const typed = row.code.trim().toUpperCase();
+    const match = MATERIALS.find(m => String(m.code).trim().toUpperCase() === typed);
     row.matched = !!match;
+    row.matchLevel = match ? "code" : "none";
     row.name = match ? match.name : (row.ocrName || row.name);
     row.uom = match ? match.uom : row.uom;
     renderOcrReview();
@@ -193,7 +368,8 @@ function ocrAddManualRow() {
         name: "",
         uom: "",
         qty: "",
-        matched: false
+        matched: false,
+        matchLevel: "none"
     });
     document.getElementById("ocrReviewWrap").style.display = "block";
     renderOcrReview();

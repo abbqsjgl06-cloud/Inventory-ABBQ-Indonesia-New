@@ -64,6 +64,9 @@
       <div class="panel-title">📷 Scan PO dari Foto (Beta)</div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
         Foto dokumen PO/DO, sistem akan coba baca Kode &amp; Nama Barang otomatis.
+        Kalau dokumen tidak punya kolom kode, sistem akan coba cocokkan dari
+        <b>nama/deskripsi barangnya</b> ke Master Data (mis. "KOL KUBIS PUTIH" bisa
+        kecocok ke item "KOL").
         <b>Selalu cek ulang hasilnya</b> — foto pudar/tulisan tangan sering salah baca.
         Qty tetap harus diisi manual karena biasanya tidak tercetak di dokumen.
       </p>
@@ -183,6 +186,6 @@
 <script src="../shared/ui-dialog.js?v=31"></script>
 <script src="app.js?v=35"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="ocr-scan.js?v=41"></script>
+<script src="ocr-scan.js?v=42"></script>
 </body>
 </html>
