@@ -31,6 +31,9 @@
     --transfer-tint:#EFEAFB;
     --usage:#0E8C8C;
     --usage-tint:#E1F2F2;
+
+    --forecast:#1A5FB4;
+    --forecast-tint:#E3ECFB;
     --variance:#B0281C;
     --variance-tint:#FBE7E4;
     --master:#4A4A4A;
@@ -184,6 +187,7 @@
   .icon-receipt{background:var(--receipt-tint);}
   .icon-transfer{background:var(--transfer-tint);}
   .icon-usage{background:var(--usage-tint);}
+  .icon-forecast{background:var(--forecast-tint);}
   .icon-variance{background:var(--variance-tint);}
   .icon-master{background:var(--master-tint);}
   .icon-eod{background:var(--eod-tint);}
@@ -218,6 +222,7 @@
   .accent-receipt .card-title{color:#1E5C36;}
   .accent-transfer .card-title{color:#4A3785;}
   .accent-usage .card-title{color:#0A5E5E;}
+  .accent-forecast .card-title{color:#12417D;}
   .accent-variance .card-title{color:#7E1D14;}
   .accent-master .card-title{color:#2E2E2E;}
   .accent-eod .card-title{color:#5A1465;}
@@ -333,6 +338,15 @@
       <div class="card-body">
         <div class="card-title">Import Usage</div>
         <div class="card-desc">Upload data penjualan, otomatis diterjemahkan ke bahan baku via BOM.</div>
+      </div>
+      <div class="chevron">›</div>
+    </a>
+
+    <a class="menu-card accent-forecast" href="forecast-order/index.html">
+      <div class="icon-wrap icon-forecast">📦</div>
+      <div class="card-body">
+        <div class="card-title">Forecasting Ordering</div>
+        <div class="card-desc">Perkiraan kebutuhan order berdasarkan stock &amp; usage, lengkap dengan riwayat.</div>
       </div>
       <div class="chevron">›</div>
     </a>

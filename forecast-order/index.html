@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+<title>Forecasting Ordering — Inventory ABBQ</title>
+<link rel="icon" href="../logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/inv-style.css?v=31">
+<style>
+  :root{ --accent:#1A5FB4; --accent-tint:#E3ECFB; }
+  thead th{background:var(--accent-tint);}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;}
+  .tabs button{
+    flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);font-weight:700;font-size:13px;cursor:pointer;color:var(--muted);
+  }
+  .tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .view{display:none;}
+  .view.active{display:block;}
+  .item-row-table input.qty-input{width:70px;text-align:right;padding:6px;border:1px solid var(--line);border-radius:8px;}
+  .forecast-badge{font-size:11px;font-weight:700;color:#1A5FB4;}
+  .stock-badge{font-size:11px;color:var(--muted);}
+  .stock-badge.neg{color:#C23B2E;font-weight:700;}
+  .info-box{
+    background:#EAF3FF;border:1px solid #BFDBFE;border-radius:12px;
+    padding:12px 14px;font-size:12px;color:#1C3D6B;line-height:1.6;margin-bottom:14px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="back-btn" href="../index.html">←</a>
+  <div class="topbar-title">
+    <div class="topbar-eyebrow">ABBQ Indonesia</div>
+    <div class="topbar-h1">Forecasting Ordering</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="tabs">
+    <button id="tabPlaceBtn" class="active" onclick="switchTab('place')">📝 Place Order</button>
+    <button id="tabHistoryBtn" onclick="switchTab('history')">🕘 History</button>
+  </div>
+
+  <!-- ============ PLACE ORDER ============ -->
+  <div id="viewPlace" class="view active">
+
+    <div id="orderSetupPanel" class="panel">
+      <div class="panel-title">+ Order Baru</div>
+      <div class="field">
+        <label>Supplier</label>
+        <select id="supplierSelect">
+          <option value="">— Pilih Supplier —</option>
+          <option value="CK Ingredients">CK Ingredients</option>
+          <option value="CK Frozen">CK Frozen</option>
+          <option value="Frenindo">Frenindo</option>
+          <option value="Vita">Vita</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Delivery Date (tanggal barang datang)</label>
+          <input type="date" id="deliveryDate">
+        </div>
+        <div class="field">
+          <label>Cover Until (kecukupan sampai tanggal)</label>
+          <input type="date" id="coverUntilDate">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="startOrder()">Lanjutkan →</button>
+    </div>
+
+    <div id="orderItemsPanel" style="display:none;">
+
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:800;font-size:15px;" id="orderSupplierLabel">-</div>
+            <div style="font-size:12px;color:var(--muted);" id="orderDatesLabel">-</div>
+          </div>
+          <button class="btn btn-ghost" style="width:auto;" onclick="cancelOrderSetup()">✕ Batal / Ganti</button>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <b>Cara baca kolom Forecast:</b> estimasi stock saat ini (dihitung dari stock opname terakhir dikurangi usage sejak saat itu) dibandingkan dengan perkiraan kebutuhan sampai tanggal Cover Until. Forecast = kebutuhan − estimasi stock (minimal 0). Angka di kolom Qty Order sudah otomatis terisi dari Forecast, tapi bisa diubah manual.
+      </div>
+
+      <div class="panel">
+        <div class="field">
+          <input type="text" id="itemSearchBox" placeholder="Cari kode atau nama item..." oninput="renderItemTable()">
+        </div>
+      </div>
+
+      <div class="table-wrap item-row-table">
+        <table>
+          <thead>
+            <tr><th>Kode</th><th>Nama Item</th><th>UOM</th><th class="num">Est. Stock</th><th class="num">Forecast</th><th class="num">Qty Order</th></tr>
+          </thead>
+          <tbody id="itemTableBody"></tbody>
+        </table>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:14px;" onclick="saveOrder()">💾 Simpan Order</button>
+      <button class="btn btn-secondary" onclick="exportOrderExcel()">⬇ Export ke Excel</button>
+    </div>
+
+  </div>
+
+  <!-- ============ HISTORY ============ -->
+  <div id="viewHistory" class="view">
+
+    <div class="panel">
+      <div class="panel-title">Riwayat Order</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Dari Tanggal Delivery</label>
+          <input type="date" id="histFrom">
+        </div>
+        <div class="field">
+          <label>Sampai Tanggal Delivery</label>
+          <input type="date" id="histTo">
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="loadHistory()">🔍 Tampilkan Riwayat</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Supplier</th><th>Delivery</th><th>Cover Until</th><th class="num">Item</th><th></th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ DETAIL ORDER (dibuka dari History) ============ -->
+  <div id="viewDetail" class="view">
+    <button class="btn btn-secondary" onclick="switchTab('history')">← Kembali ke History</button>
+    <div class="panel" style="margin-top:14px;">
+      <div style="font-weight:800;font-size:15px;" id="detailSupplierLabel">-</div>
+      <div style="font-size:12px;color:var(--muted);" id="detailDatesLabel">-</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kode</th><th>Nama Item</th><th>UOM</th><th class="num">Forecast</th><th class="num">Qty Order</th></tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost" style="color:#C23B2E;" onclick="deleteOrderFromDetail()">🗑 Hapus Order Ini</button>
+  </div>
+
+</main>
+
+<div class="notif" id="notif"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="../shared/firebase-config.js"></script>
+<script>window.AUTH_GUARD_DEPTH = 1;</script>
+<script src="../shared/auth-guard.js?v=44"></script>
+<script src="../shared/chat-widget.js?v=2"></script>
+<script src="../shared/xlsx.full.min.js?v=31"></script>
+<script src="../shared/inv-db.js?v=38"></script>
+<script src="../shared/ui-dialog.js?v=31"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
