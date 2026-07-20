@@ -97,6 +97,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="materials">Item Bahan Baku</button>
       <button class="tab-btn" data-tab="bom">BOM / Resep Menu</button>
+      <button class="tab-btn" data-tab="supplier">Supplier Barang</button>
     </div>
 
     <div class="tab-panel active" id="tab-materials">
@@ -153,6 +154,62 @@
       <div id="menuList"></div>
     </div>
 
+    <div class="tab-panel" id="tab-supplier">
+      <div class="panel admin-only" id="panelSupplierUpload">
+        <div class="panel-title">📥 Upload Daftar Supplier per Item</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+          Tentukan setiap item bahan baku dipasok oleh supplier mana. Ini yang dipakai
+          Forecasting Ordering supaya waktu pilih supplier, cuma item punya supplier itu
+          saja yang muncul (tidak semua item bahan baku sekaligus).
+        </p>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Supplier yang valid: <b>CK Ingredients</b>, <b>CK Frozen</b>, <b>Frenindo</b>, <b>Vita</b>.
+        </p>
+        <button class="btn btn-secondary" onclick="downloadSupplierTemplate()" style="margin-bottom:12px;">⬇ Download Template (sudah terisi kode &amp; nama item)</button>
+
+        <label for="supplierFileInput" style="display:block;border:2px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:12px;cursor:pointer;">
+          📄 Ketuk untuk pilih file Supplier.xlsx yang sudah diisi<br>
+          <span id="supplierFileName" style="font-weight:600;color:var(--ink);"></span>
+        </label>
+        <input type="file" id="supplierFileInput" accept=".xlsx,.xls" style="display:none;">
+
+        <div id="supplierPreview" style="display:none;">
+          <div class="summary-grid">
+            <div class="summary-card">
+              <div class="summary-label">Baris Terbaca</div>
+              <div class="summary-value" id="supPrevRows">0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Item Dipetakan</div>
+              <div class="summary-value pos" id="supPrevMapped">0</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Supplier Tidak Valid</div>
+              <div class="summary-value neg" id="supPrevInvalid">0</div>
+            </div>
+          </div>
+          <div id="supPrevInvalidList" style="display:none;font-size:12px;color:#8C2A1E;background:#FCEBE9;border-radius:8px;padding:10px 12px;margin-bottom:12px;"></div>
+          <button class="btn btn-primary" onclick="confirmSupplierImport()">✓ Terapkan Update Ini</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Cari Item</div>
+        <div class="field">
+          <input type="text" id="searchSupplierItem" placeholder="Cari kode atau nama item..." oninput="renderSupplierItems()">
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Kode</th><th>Nama Item</th><th>Supplier</th><th class="admin-only-cell"></th></tr>
+          </thead>
+          <tbody id="supplierItemsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="panel admin-only" id="panelResetSeed">
       <div class="panel-title">Reset Data Master</div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
@@ -181,6 +238,6 @@
 <script src="../shared/seed-data.js?v=25"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

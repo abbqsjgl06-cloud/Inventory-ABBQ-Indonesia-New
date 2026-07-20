@@ -4,7 +4,9 @@ let BOM_ROWS = [];
 let MENUS = [];
 let PARSED_ROWS = [];
 let SALES_BY_MENU = {};
-let USAGE_RESULT = {};   // material_code -> qty
+let SALES_BY_DATE_MENU = {};   // { "2026-07-16": { menuCode: qty } }
+let USAGE_RESULT = {};   // material_code -> qty (total file, for preview + back-compat)
+let USAGE_BY_DATE_MATERIAL = {}; // { "2026-07-16": { materialCode: qty } }
 let UNMATCHED_MENUS = new Set();
 let DATE_MIN = null, DATE_MAX = null;
 let ALL_IMPORTS = [];
@@ -26,7 +28,85 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("fileInput").addEventListener("change", handleFile);
     renderHistoryPrompt();
+
+    MATERIALS_FOR_LOOKUP = await InvDB.getAll("materials");
+    await refreshCoveredDatesCache();
+    let dailyUsageDebounce = null;
+    document.getElementById("dailyUsageSearch").addEventListener("input", (e) => {
+        clearTimeout(dailyUsageDebounce);
+        dailyUsageDebounce = setTimeout(() => lookupDailyUsage(e.target.value), 350);
+    });
 });
+
+let MATERIALS_FOR_LOOKUP = [];
+let ALL_DAILY_MATERIAL_DATES = new Set();
+
+async function refreshCoveredDatesCache(){
+    ALL_DAILY_MATERIAL_DATES = new Set((await InvDB.getAll("usageDailyMaterial")).map(r => r.date));
+}
+
+async function lookupDailyUsage(query){
+    const key = query.trim().toLowerCase();
+    const resultBox = document.getElementById("dailyUsageResult");
+    const emptyBox = document.getElementById("dailyUsageEmpty");
+
+    if(!key){
+        resultBox.style.display = "none";
+        emptyBox.style.display = "none";
+        return;
+    }
+
+    const material = MATERIALS_FOR_LOOKUP.find(m =>
+        String(m.code).toLowerCase() === key || (m.name||"").toLowerCase().includes(key)
+    );
+    if(!material){
+        resultBox.style.display = "none";
+        emptyBox.style.display = "block";
+        emptyBox.textContent = "Item tidak ditemukan di Master Data.";
+        return;
+    }
+
+    const all = await InvDB.getByIndex("usageDailyMaterial", "material_code", material.code);
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 29); // 30 hari termasuk hari ini
+    const startStr = start.toISOString().slice(0,10);
+    const endStr = end.toISOString().slice(0,10);
+
+    const inRange = all.filter(r => r.date >= startStr && r.date <= endStr).sort((a,b)=> b.date.localeCompare(a.date));
+
+    if(inRange.length === 0){
+        resultBox.style.display = "none";
+        emptyBox.style.display = "block";
+        emptyBox.textContent = `Belum ada data usage harian untuk "${material.name}" dalam 30 hari terakhir. (Pastikan file yang diupload punya kolom tanggal per baris.)`;
+        return;
+    }
+
+    const total = inRange.reduce((s,r)=> s + (Number(r.qty)||0), 0);
+
+    // Sama seperti Forecasting Ordering: pembaginya adaptif. Kalau baru
+    // ada 10 hari data usage yang ter-upload, dibagi 10 (rata-rata dari
+    // yang ada) - bukan dipaksa dibagi 30 yang akan bikin angkanya
+    // kekecilan selama 30 hari pertama pemakaian.
+    let coveredDaysInWindow = 0;
+    ALL_DAILY_MATERIAL_DATES.forEach(d => { if(d >= startStr && d <= endStr) coveredDaysInWindow++; });
+    const denom = coveredDaysInWindow > 0 ? Math.min(30, coveredDaysInWindow) : 30;
+    const avg = total / denom;
+
+    document.getElementById("dailyUsageTotal").textContent = fmtNum(total) + " " + material.uom;
+    document.getElementById("dailyUsageAvg").textContent = fmtNum(avg) + " " + material.uom;
+    document.getElementById("dailyUsageDaysCount").textContent = `${inRange.length} hari ada penjualan item ini (rata-rata dihitung /${denom} hari cakupan data)`;
+    document.getElementById("dailyUsageBody").innerHTML = inRange.map(r => `
+        <tr><td>${r.date}</td><td class="num">${fmtNum(r.qty)}</td></tr>
+    `).join("");
+
+    resultBox.style.display = "block";
+    emptyBox.style.display = "none";
+}
+
+function fmtNum(n){
+    return Number(n).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
 
 function applyHistoryFilter(){
     HISTORY_FILTER_APPLIED = true;
@@ -122,7 +202,9 @@ function processRows(rows, filename){
     }
 
     SALES_BY_MENU = {};
+    SALES_BY_DATE_MENU = {};
     DATE_MIN = null; DATE_MAX = null;
+    let rowsWithoutDate = 0;
 
     rows.forEach(r => {
         const code = String(r[codeKey]).trim();
@@ -130,17 +212,29 @@ function processRows(rows, filename){
         if(!code) return;
         SALES_BY_MENU[code] = (SALES_BY_MENU[code] || 0) + qty;
 
+        let dateStr = null;
         if(dateKey && r[dateKey] !== "" && r[dateKey] !== undefined && r[dateKey] !== null){
             const d = parseFlexibleDate(r[dateKey]);
             if(d){
                 if(!DATE_MIN || d < DATE_MIN) DATE_MIN = d;
                 if(!DATE_MAX || d > DATE_MAX) DATE_MAX = d;
+                dateStr = d.toISOString().slice(0,10);
             }
         }
+
+        // Setiap baris DIKELOMPOKKAN per tanggal (bukan cuma dijumlah
+        // total 1 file) - ini penting supaya Forecasting Ordering &
+        // Rekap Menu bisa lihat usage harian & rata-rata 30 hari, bukan
+        // cuma 1 angka gabungan untuk seluruh periode file.
+        if(!dateStr) { rowsWithoutDate++; return; }
+        if(!SALES_BY_DATE_MENU[dateStr]) SALES_BY_DATE_MENU[dateStr] = {};
+        SALES_BY_DATE_MENU[dateStr][code] = (SALES_BY_DATE_MENU[dateStr][code] || 0) + qty;
     });
 
-    // translate to material usage via BOM
+    // translate ke bahan baku via BOM - baik totalnya (utk preview +
+    // usageDetail lama) maupun PER TANGGAL (utk usageDailyMaterial baru)
     USAGE_RESULT = {};
+    USAGE_BY_DATE_MATERIAL = {};
     UNMATCHED_MENUS = new Set();
 
     const bomByMenu = {};
@@ -149,8 +243,7 @@ function processRows(rows, filename){
         bomByMenu[b.menu_code].push(b);
     });
 
-    Object.keys(SALES_BY_MENU).forEach(menuCode => {
-        const qtySold = SALES_BY_MENU[menuCode];
+    function translateMenuToMaterial(menuCode, qtySold, targetBucket){
         const bomLines = bomByMenu[menuCode];
         if(!bomLines){
             UNMATCHED_MENUS.add(menuCode);
@@ -158,7 +251,18 @@ function processRows(rows, filename){
         }
         bomLines.forEach(line => {
             const usage = qtySold * Number(line.qty_per_portion || 0);
-            USAGE_RESULT[line.material_code] = (USAGE_RESULT[line.material_code] || 0) + usage;
+            targetBucket[line.material_code] = (targetBucket[line.material_code] || 0) + usage;
+        });
+    }
+
+    Object.keys(SALES_BY_MENU).forEach(menuCode => {
+        translateMenuToMaterial(menuCode, SALES_BY_MENU[menuCode], USAGE_RESULT);
+    });
+
+    Object.keys(SALES_BY_DATE_MENU).forEach(dateStr => {
+        USAGE_BY_DATE_MATERIAL[dateStr] = {};
+        Object.keys(SALES_BY_DATE_MENU[dateStr]).forEach(menuCode => {
+            translateMenuToMaterial(menuCode, SALES_BY_DATE_MENU[dateStr][menuCode], USAGE_BY_DATE_MATERIAL[dateStr]);
         });
     });
 
@@ -172,10 +276,13 @@ function processRows(rows, filename){
     if(dateWarning){
         if(!dateKey){
             dateWarning.style.display = "block";
-            dateWarning.textContent = "⚠ Kolom tanggal tidak ditemukan di file. Periode akan disimpan tanpa rentang tanggal otomatis (isi manual di 'Nama Periode' saja).";
+            dateWarning.textContent = "⚠ Kolom tanggal tidak ditemukan di file. Data TIDAK BISA dipecah per hari (Forecasting Ordering & Rekap Menu butuh kolom tanggal per baris) - hanya total periode yang tersimpan.";
         } else if(!DATE_MIN || !DATE_MAX){
             dateWarning.style.display = "block";
             dateWarning.textContent = "⚠ Kolom tanggal ditemukan tapi formatnya tidak terbaca. Coba format tanggal YYYY-MM-DD atau DD/MM/YYYY di file Excel-nya.";
+        } else if(rowsWithoutDate > 0){
+            dateWarning.style.display = "block";
+            dateWarning.textContent = `⚠ ${rowsWithoutDate} baris tidak punya tanggal terbaca dan tidak ikut dipecah per hari (tetap ikut di total periode).`;
         } else {
             dateWarning.style.display = "none";
         }
@@ -187,6 +294,7 @@ function processRows(rows, filename){
 async function confirmImport(){
     const periodLabel = document.getElementById("periodLabel").value.trim() || defaultPeriodLabel();
     const importId = "usg_" + Date.now();
+    const outletTag = (typeof window !== "undefined" && window.CURRENT_OUTLET_ID) ? window.CURRENT_OUTLET_ID : "shared";
 
     const header = {
         id: importId,
@@ -202,10 +310,48 @@ async function confirmImport(){
 
     await InvDB.put("usageImports", header);
 
+    // usageDetail - total per bahan baku utk 1 file (dipakai Laporan
+    // Variance, TIDAK diubah supaya laporan lama tetap jalan persis
+    // seperti sebelumnya).
     const details = Object.entries(USAGE_RESULT).map(([material_code, qty]) => ({
         importId, material_code, qty
     }));
     await InvDB.bulkPut("usageDetail", details);
+
+    // usageDailyMenu - usage MENU per tanggal (dipakai Rekap Menu).
+    // ID deterministik (outlet_tanggal_kodemenu) supaya kalau tanggal
+    // yang sama diupload ulang, datanya DIGANTI bukan dobel.
+    const dailyMenuRows = [];
+    Object.keys(SALES_BY_DATE_MENU).forEach(dateStr => {
+        Object.keys(SALES_BY_DATE_MENU[dateStr]).forEach(menuCode => {
+            dailyMenuRows.push({
+                id: `${outletTag}_${dateStr}_${menuCode}`,
+                date: dateStr,
+                menu_code: menuCode,
+                qty: SALES_BY_DATE_MENU[dateStr][menuCode],
+                importId
+            });
+        });
+    });
+    await InvDB.bulkPut("usageDailyMenu", dailyMenuRows);
+
+    // usageDailyMaterial - usage BAHAN BAKU per tanggal (dipakai
+    // Forecasting Ordering utk rata-rata harian & pengurangan stock
+    // opname yang presisi per hari, bukan prorata).
+    const dailyMaterialRows = [];
+    Object.keys(USAGE_BY_DATE_MATERIAL).forEach(dateStr => {
+        Object.keys(USAGE_BY_DATE_MATERIAL[dateStr]).forEach(materialCode => {
+            dailyMaterialRows.push({
+                id: `${outletTag}_${dateStr}_${materialCode}`,
+                date: dateStr,
+                material_code: materialCode,
+                qty: USAGE_BY_DATE_MATERIAL[dateStr][materialCode],
+                importId
+            });
+        });
+    });
+    await InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows);
+    await refreshCoveredDatesCache();
 
     ALL_IMPORTS.push(header);
     document.getElementById("previewBox").style.display = "none";
@@ -213,16 +359,29 @@ async function confirmImport(){
     document.getElementById("fileName").textContent = "";
 
     renderImportHistory();
-    toast("✓ Usage berhasil disimpan (" + details.length + " item bahan baku)", "success");
+    const dayCount = Object.keys(SALES_BY_DATE_MENU).length;
+    toast(`✓ Usage berhasil disimpan (${details.length} item bahan baku${dayCount > 0 ? `, ${dayCount} hari terpecah` : ""})`, "success");
 }
 
 async function deleteImport(id){
-    if(!await uiConfirm("Hapus riwayat import ini? Usage terkait akan dihapus dari laporan variance.")) return;
+    if(!await uiConfirm("Hapus riwayat import ini? Usage terkait (termasuk breakdown harian) akan dihapus dari laporan variance, Forecasting Ordering, dan Rekap Menu.")) return;
     await InvDB.remove("usageImports", id);
+
     const details = await InvDB.getByIndex("usageDetail", "importId", id);
     for(const d of details){
         await InvDB.remove("usageDetail", d.id);
     }
+
+    const dailyMenu = await InvDB.getByIndex("usageDailyMenu", "importId", id);
+    for(const d of dailyMenu){
+        await InvDB.remove("usageDailyMenu", d.id);
+    }
+
+    const dailyMaterial = await InvDB.getByIndex("usageDailyMaterial", "importId", id);
+    for(const d of dailyMaterial){
+        await InvDB.remove("usageDailyMaterial", d.id);
+    }
+
     ALL_IMPORTS = ALL_IMPORTS.filter(i => i.id !== id);
     renderImportHistory();
     toast("✓ Dihapus","success");

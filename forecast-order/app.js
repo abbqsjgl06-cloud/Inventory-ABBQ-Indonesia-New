@@ -9,24 +9,36 @@
       dihitung Daily maupun yang cuma dihitung mingguan (WM): kalau
       terakhir dihitung hari Minggu dan sekarang Rabu, otomatis dipakai
       hitungan Minggu itu.
-   2. Kurangi dengan usage sejak (tanggal hitungan + 1) sampai kemarin
-      (prorata dari data Import Usage yang overlap rentang itu) ->
-      hasilnya "Estimasi Stock Saat Ini".
-   3. Hitung rata-rata usage harian dari histori 30 hari terakhir.
+   2. Kurangi dengan usage HARIAN AKTUAL (dari Import Usage yang sudah
+      dipecah per tanggal) sejak (tanggal hitungan + 1) sampai kemarin
+      -> hasilnya "Estimasi Stock Saat Ini". Kalau utk rentang itu tidak
+      ada data harian sama sekali (mis. import lama tanpa kolom
+      tanggal), baru dipakai cara lama (prorata dari total per-file).
+   3. Hitung rata-rata usage harian dari histori 30 hari terakhir
+      (dari data harian aktual; fallback ke prorata kalau tidak ada).
    4. Kebutuhan = rata-rata harian x jumlah hari (Delivery Date s/d
       Cover Until, inklusif).
    5. Forecast = max(0, Kebutuhan - Estimasi Stock Saat Ini).
+
+   Item yang ditampilkan waktu Place Order HANYA item yang sudah
+   dipetakan ke supplier itu di Master Data > Supplier Barang - bukan
+   seluruh Item Bahan Baku.
 ========================================== */
 
 let MATERIALS = [];
 let STOCK_SESSIONS = [];
 let USAGE_IMPORTS = [];
 let USAGE_DETAILS = [];
+let USAGE_DAILY_MATERIAL = [];
+let SUPPLIER_ITEMS = [];
 let ALL_ORDERS = [];
 
 let SESSIONS_BY_CODE = new Map();   // code -> [{tanggal, qty}] sorted asc
-let USAGE_BY_CODE = new Map();      // code -> [{importId, qty}]
+let USAGE_BY_CODE = new Map();      // code -> [{importId, qty}]  (fallback, prorata)
 let IMPORT_BY_ID = new Map();       // importId -> {periodStart, periodEnd, days}
+let DAILY_BY_CODE = new Map();      // code -> Map(date -> qty)   (utama, data harian aktual)
+let ALL_COVERED_DATES = new Set();  // semua tanggal yang PERNAH ter-cover oleh Import Usage manapun
+let SUPPLIER_BY_CODE = new Map();   // code -> supplier
 
 let CURRENT_ITEMS = [];             // hasil forecast utk order yang sedang dibuat
 let DETAIL_ORDER = null;
@@ -41,6 +53,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     STOCK_SESSIONS = await InvDB.getAll("stockOpname");
     USAGE_IMPORTS = await InvDB.getAll("usageImports");
     USAGE_DETAILS = await InvDB.getAll("usageDetail");
+    USAGE_DAILY_MATERIAL = await InvDB.getAll("usageDailyMaterial");
+    SUPPLIER_ITEMS = await InvDB.getAll("supplierItems");
 
     buildIndexes();
 
@@ -70,7 +84,7 @@ function daysBetweenInclusive(a, b){
 
 /* ======================================
    BUILD LOOKUP INDEXES (sekali di awal,
-   supaya hitung forecast 185+ item tetap cepat)
+   supaya hitung forecast tetap cepat)
 ====================================== */
 
 function buildIndexes(){
@@ -97,6 +111,17 @@ function buildIndexes(){
         if(!USAGE_BY_CODE.has(d.material_code)) USAGE_BY_CODE.set(d.material_code, []);
         USAGE_BY_CODE.get(d.material_code).push({ importId: d.importId, qty: Number(d.qty) || 0 });
     });
+
+    DAILY_BY_CODE = new Map();
+    ALL_COVERED_DATES = new Set();
+    USAGE_DAILY_MATERIAL.forEach(d => {
+        if(!DAILY_BY_CODE.has(d.material_code)) DAILY_BY_CODE.set(d.material_code, new Map());
+        const m = DAILY_BY_CODE.get(d.material_code);
+        m.set(d.date, (m.get(d.date) || 0) + (Number(d.qty) || 0));
+        ALL_COVERED_DATES.add(d.date);
+    });
+
+    SUPPLIER_BY_CODE = new Map(SUPPLIER_ITEMS.map(s => [s.code, s.supplier]));
 }
 
 /* ======================================
@@ -110,8 +135,10 @@ function overlapDays(rangeStart, rangeEnd, periodStart, periodEnd){
     return daysBetweenInclusive(start, end);
 }
 
-// Usage untuk 1 kode, diprorata utk rentang [rangeStart, rangeEnd] inklusif.
-function usageInRange(code, rangeStart, rangeEnd){
+// Fallback LAMA: usage diprorata dari total 1 file import (dipakai
+// HANYA kalau tidak ada data harian aktual sama sekali utk rentang ini
+// - mis. file lama yang diupload sebelum kolom tanggal per baris ada).
+function usageInRangeProrated(code, rangeStart, rangeEnd){
     if(rangeStart > rangeEnd) return 0;
     const rows = USAGE_BY_CODE.get(code) || [];
     let total = 0;
@@ -124,6 +151,31 @@ function usageInRange(code, rangeStart, rangeEnd){
         }
     });
     return total;
+}
+
+// UTAMA: jumlahkan usage HARIAN AKTUAL (dari Import Usage yang sudah
+// dipecah per tanggal) di rentang [rangeStart, rangeEnd] inklusif.
+// Mengembalikan juga berapa hari yang benar-benar ada datanya, supaya
+// pemanggil bisa memutuskan perlu fallback prorata atau tidak.
+function dailyUsageInRange(code, rangeStart, rangeEnd){
+    const dateMap = DAILY_BY_CODE.get(code);
+    if(!dateMap) return { total: 0, daysWithData: 0 };
+    let total = 0, daysWithData = 0;
+    dateMap.forEach((qty, date) => {
+        if(date >= rangeStart && date <= rangeEnd){
+            total += qty;
+            daysWithData++;
+        }
+    });
+    return { total, daysWithData };
+}
+
+function usageInRange(code, rangeStart, rangeEnd){
+    if(rangeStart > rangeEnd) return 0;
+    const daily = dailyUsageInRange(code, rangeStart, rangeEnd);
+    if(daily.daysWithData > 0) return daily.total;
+    // tidak ada data harian sama sekali di rentang ini -> fallback prorata
+    return usageInRangeProrated(code, rangeStart, rangeEnd);
 }
 
 function calcForecastForCode(code, baselineDate, deliveryDate, coverUntilDate){
@@ -144,17 +196,30 @@ function calcForecastForCode(code, baselineDate, deliveryDate, coverUntilDate){
         estimatedStock = 0;
     }
 
-    // Rata-rata usage harian dari lookback window
+    // Rata-rata usage harian dari lookback window - pakai data harian
+    // aktual kalau ada, kalau tidak fallback ke prorata.
+    //
+    // PENTING: pembaginya BUKAN selalu 30. Kalau baru ada mis. 10 hari
+    // data Import Usage yang ter-upload sejauh ini, dibagi 10 (rata-rata
+    // dari data yang ADA) - bukan dibagi 30 yang akan bikin angkanya
+    // kekecilan/under-estimate selama 30 hari pertama pemakaian fitur
+    // ini. Begitu sudah lewat 30 hari histori, otomatis kembali dibagi
+    // 30 (rolling window biasa).
     const windowStart = addDays(baselineDate, -LOOKBACK_DAYS + 1);
     const windowUsage = usageInRange(code, windowStart, baselineDate);
-    const dailyRate = windowUsage / LOOKBACK_DAYS;
+    let coveredDaysInWindow = 0;
+    ALL_COVERED_DATES.forEach(d => {
+        if(d >= windowStart && d <= baselineDate) coveredDaysInWindow++;
+    });
+    const denom = coveredDaysInWindow > 0 ? Math.min(LOOKBACK_DAYS, coveredDaysInWindow) : LOOKBACK_DAYS;
+    const dailyRate = windowUsage / denom;
 
     const periodDays = Math.max(1, daysBetweenInclusive(deliveryDate, coverUntilDate));
     const neededQty = dailyRate * periodDays;
 
     const forecastQty = Math.max(0, Math.round((neededQty - estimatedStock) * 100) / 100);
 
-    return { estimatedStock: Math.round(estimatedStock*100)/100, lastCountDate, dailyRate, forecastQty };
+    return { estimatedStock: Math.round(estimatedStock*100)/100, lastCountDate, dailyRate, forecastQty, avgDaysUsed: denom };
 }
 
 /* ======================================
@@ -171,7 +236,7 @@ function switchTab(tab){
 }
 
 /* ======================================
-   START ORDER (hitung forecast semua item)
+   START ORDER (hitung forecast semua item milik supplier ini)
 ====================================== */
 
 function startOrder(){
@@ -183,16 +248,24 @@ function startOrder(){
     if(!deliveryDate || !coverUntilDate){ toast("Lengkapi Delivery Date & Cover Until","error"); return; }
     if(coverUntilDate < deliveryDate){ toast("Cover Until tidak boleh sebelum Delivery Date","error"); return; }
 
+    const supplierMaterials = MATERIALS.filter(m => SUPPLIER_BY_CODE.get(m.code) === supplier);
+
+    if(supplierMaterials.length === 0){
+        toast(`Belum ada item yang dipetakan ke supplier "${supplier}". Atur dulu di Master Data > Supplier Barang.`, "error");
+        return;
+    }
+
     const baselineDate = addDays(todayStr(), -1);
 
-    CURRENT_ITEMS = MATERIALS.map(m => {
+    CURRENT_ITEMS = supplierMaterials.map(m => {
         const calc = calcForecastForCode(m.code, baselineDate, deliveryDate, coverUntilDate);
         return {
             code: m.code, name: m.name, uom: m.uom,
             estimatedStock: calc.estimatedStock,
             lastCountDate: calc.lastCountDate,
             forecastQty: calc.forecastQty,
-            orderQty: calc.forecastQty
+            orderQty: calc.forecastQty,
+            avgDaysUsed: calc.avgDaysUsed
         };
     });
 
@@ -233,7 +306,10 @@ function renderItemTable(){
                 <span class="stock-badge ${r.estimatedStock < 0 ? "neg" : ""}">${fmt(r.estimatedStock)}</span><br>
                 <small style="color:var(--muted);">${r.lastCountDate ? "SO: " + r.lastCountDate : "belum pernah dihitung"}</small>
             </td>
-            <td class="num"><span class="forecast-badge">${fmt(r.forecastQty)}</span></td>
+            <td class="num">
+                <span class="forecast-badge">${fmt(r.forecastQty)}</span><br>
+                <small style="color:var(--muted);">rata2 dari ${r.avgDaysUsed} hari</small>
+            </td>
             <td class="num"><input type="number" class="qty-input" value="${r.orderQty}" data-code="${r.code}" oninput="updateOrderQty('${r.code}', this.value)"></td>
         </tr>
     `).join("");

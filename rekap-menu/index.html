@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+<title>Rekap Menu — Inventory ABBQ</title>
+<link rel="icon" href="../logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/inv-style.css?v=31">
+<style>
+  :root{ --accent:#7A4FBF; --accent-tint:#EFE9FB; }
+  thead th{background:var(--accent-tint);position:sticky;top:0;}
+  .table-wrap{max-height:70vh;overflow:auto;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;margin:10px 0;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="back-btn" href="../index.html">←</a>
+  <div class="topbar-title">
+    <div class="topbar-eyebrow">ABBQ Indonesia</div>
+    <div class="topbar-h1">Rekap Menu</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="panel">
+    <div class="panel-title">Filter Rekap Menu</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Rekap qty terjual per hari untuk daftar menu yang dipakai outlet ini,
+      dikelompokkan per kategori. Data diambil dari hasil <b>Import Usage</b>
+      yang sudah diupload dengan kolom tanggal per baris.
+    </p>
+    <div class="field-row">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="dateTo">
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="onlyWithSales" checked onchange="renderReport()">
+      <label for="onlyWithSales" style="margin:0;">Sembunyikan menu yang tidak ada penjualan sama sekali di rentang ini</label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="width:auto;flex:1;" onclick="generateReport()">🔍 Tampilkan</button>
+      <button class="btn btn-secondary" style="width:auto;flex:1;" onclick="exportExcel()">⬇ Export ke Excel</button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">Jumlah Hari</div>
+      <div class="summary-value" id="summaryDays">0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Menu Ditampilkan</div>
+      <div class="summary-value" id="summaryItems">0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Terjual</div>
+      <div class="summary-value" id="summaryTotal">0</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="reportHead"></tr></thead>
+      <tbody id="reportBody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<div class="notif" id="notif"></div>
+
+<script src="../shared/xlsx.full.min.js?v=31"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="../shared/firebase-config.js"></script>
+<script>window.AUTH_GUARD_DEPTH = 1;</script>
+<script src="../shared/auth-guard.js?v=44"></script>
+<script src="../shared/chat-widget.js?v=2"></script>
+<script src="../shared/inv-db.js?v=38"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>

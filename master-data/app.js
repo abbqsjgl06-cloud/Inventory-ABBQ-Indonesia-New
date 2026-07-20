@@ -3,7 +3,11 @@
 let ALL_MATERIALS = [];
 let ALL_MENUS = [];
 let ALL_BOM = [];
+let ALL_SUPPLIER_ITEMS = [];
 let DETAIL_LOADED = false;
+
+const SUPPLIER_LIST = ["CK Ingredients", "CK Frozen", "Frenindo", "Vita"];
+let PENDING_SUPPLIER_IMPORT = null;
 
 let IS_ADMIN = false;
 
@@ -19,6 +23,7 @@ function unlockApp(){
     document.getElementById("appContent").style.display = "block";
 
     document.getElementById("bomFileInput").addEventListener("change", handleBomFile);
+    document.getElementById("supplierFileInput").addEventListener("change", handleSupplierFile);
     initTabs();
     init();
 }
@@ -86,8 +91,10 @@ async function refreshAll(){
     ALL_MATERIALS = (await InvDB.getAll("materials")).sort((a,b)=>a.name.localeCompare(b.name));
     ALL_MENUS = (await InvDB.getAll("menus")).sort((a,b)=>a.menu_name.localeCompare(b.menu_name));
     ALL_BOM = await InvDB.getAll("bom");
+    ALL_SUPPLIER_ITEMS = await InvDB.getAll("supplierItems");
     renderMaterials();
     renderMenus();
+    renderSupplierItems();
 }
 
 /* ================= MATERIALS ================= */
@@ -361,4 +368,157 @@ async function confirmBomImport(){
 
     await refreshAll();
     toast("✓ Master Data berhasil diperbarui","success");
+}
+
+/* ================= SUPPLIER BARANG (In CK / In Supplier) ================= */
+
+function renderSupplierItems(){
+    const key = (document.getElementById("searchSupplierItem").value || "").toLowerCase();
+    const supplierByCode = new Map(ALL_SUPPLIER_ITEMS.map(s => [s.code, s.supplier]));
+
+    const filtered = ALL_MATERIALS.filter(m =>
+        m.code.toLowerCase().includes(key) || (m.name||"").toLowerCase().includes(key)
+    );
+
+    document.getElementById("supplierItemsBody").innerHTML = filtered.map(m => {
+        const current = supplierByCode.get(m.code) || "";
+        return `
+        <tr>
+            <td>${m.code}</td>
+            <td>${m.name || ""}</td>
+            <td>
+                ${IS_ADMIN ? `
+                <select onchange="setSupplierForItem('${m.code}', this.value)" style="padding:6px;border-radius:8px;border:1px solid var(--line);">
+                    <option value="">— belum ditentukan —</option>
+                    ${SUPPLIER_LIST.map(s => `<option value="${s}" ${s===current?"selected":""}>${s}</option>`).join("")}
+                </select>
+                ` : (current || `<span style="color:var(--muted);">— belum ditentukan —</span>`)}
+            </td>
+            <td></td>
+        </tr>
+        `;
+    }).join("") || `<tr><td colspan="4" class="empty">Tidak ada item ditemukan</td></tr>`;
+}
+
+async function setSupplierForItem(code, supplier){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengubah ini","error"); return; }
+    const material = ALL_MATERIALS.find(m => m.code === code);
+    try {
+        if(!supplier){
+            await InvDB.remove("supplierItems", code);
+            ALL_SUPPLIER_ITEMS = ALL_SUPPLIER_ITEMS.filter(s => s.code !== code);
+        } else {
+            await InvDB.put("supplierItems", { code, name: material ? material.name : "", supplier });
+            ALL_SUPPLIER_ITEMS = ALL_SUPPLIER_ITEMS.filter(s => s.code !== code);
+            ALL_SUPPLIER_ITEMS.push({ code, name: material ? material.name : "", supplier });
+        }
+        toast("✓ Supplier item disimpan","success");
+    } catch(err){
+        console.error(err);
+        toast("Gagal simpan. Cek koneksi internet.","error");
+    }
+}
+
+function downloadSupplierTemplate(){
+    const header = ["Kode Item", "Nama Item", "Supplier"];
+    const supplierByCode = new Map(ALL_SUPPLIER_ITEMS.map(s => [s.code, s.supplier]));
+    const rows = ALL_MATERIALS.map(m => [m.code, m.name, supplierByCode.get(m.code) || ""]);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Supplier Item");
+
+    // Sheet ke-2 cuma catatan daftar nama supplier yang valid (bukan
+    // data-validation dropdown asli - Excel/HP kadang tidak baca
+    // validation dari sheet lain dengan baik, jadi ini sekadar panduan
+    // teks supaya pengisian kolom Supplier tetap konsisten).
+    const noteWs = XLSX.utils.aoa_to_sheet([
+        ["Daftar Nama Supplier yang Valid (ketik PERSIS salah satu ini di kolom Supplier)"],
+        ...SUPPLIER_LIST.map(s => [s])
+    ]);
+    XLSX.utils.book_append_sheet(wb, noteWs, "Daftar Supplier Valid");
+
+    XLSX.writeFile(wb, "Template_Supplier_Item.xlsx");
+}
+
+function handleSupplierFile(e){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh upload ini","error"); return; }
+    const file = e.target.files[0];
+    if(!file) return;
+    document.getElementById("supplierFileName").textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(data, { type: "array" });
+            processSupplierWorkbook(wb);
+        } catch(err){
+            console.error(err);
+            toast("Gagal membaca file. Pastikan format .xlsx/.xls","error");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function processSupplierWorkbook(wb){
+    const sheetName = findSheetName(wb, ["Supplier Item"]) || wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
+    const validSet = new Set(SUPPLIER_LIST.map(s => s.toLowerCase()));
+    const parsed = [];
+    const invalid = [];
+
+    rows.slice(1).forEach(row => {
+        const code = row[0], name = row[1], supplierRaw = row[2];
+        if(code === "" || code === undefined || code === null) return;
+        const codeStr = String(code).trim();
+        const supplierStr = String(supplierRaw || "").trim();
+        if(!supplierStr) return; // baris belum diisi supplier, lewati diam-diam
+
+        const match = SUPPLIER_LIST.find(s => s.toLowerCase() === supplierStr.toLowerCase());
+        if(!match){
+            invalid.push(`${codeStr} (${name || ""}): "${supplierStr}"`);
+            return;
+        }
+        parsed.push({ code: codeStr, name: String(name || "").trim(), supplier: match });
+    });
+
+    PENDING_SUPPLIER_IMPORT = parsed;
+
+    document.getElementById("supPrevRows").textContent = rows.length - 1;
+    document.getElementById("supPrevMapped").textContent = parsed.length;
+    document.getElementById("supPrevInvalid").textContent = invalid.length;
+
+    const invalidBox = document.getElementById("supPrevInvalidList");
+    if(invalid.length > 0){
+        invalidBox.style.display = "block";
+        invalidBox.innerHTML = `⚠ ${invalid.length} baris punya nama supplier yang tidak dikenali (dilewati, tidak ikut disimpan):<br>` +
+            invalid.slice(0,15).map(s => `• ${s}`).join("<br>") +
+            (invalid.length > 15 ? `<br>...dan ${invalid.length - 15} lainnya` : "");
+    } else {
+        invalidBox.style.display = "none";
+    }
+
+    document.getElementById("supplierPreview").style.display = "block";
+}
+
+async function confirmSupplierImport(){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh update ini","error"); return; }
+    if(!PENDING_SUPPLIER_IMPORT || PENDING_SUPPLIER_IMPORT.length === 0){ toast("Tidak ada baris valid untuk disimpan","error"); return; }
+    if(!await uiConfirm(`Simpan pemetaan supplier untuk ${PENDING_SUPPLIER_IMPORT.length} item? Item yang sudah punya supplier sebelumnya akan digantikan sesuai file ini.`)) return;
+
+    try {
+        await InvDB.bulkPut("supplierItems", PENDING_SUPPLIER_IMPORT);
+        PENDING_SUPPLIER_IMPORT = null;
+        document.getElementById("supplierPreview").style.display = "none";
+        document.getElementById("supplierFileInput").value = "";
+        document.getElementById("supplierFileName").textContent = "";
+        await refreshAll();
+        toast("✓ Pemetaan supplier berhasil disimpan","success");
+    } catch(err){
+        console.error(err);
+        toast("Gagal menyimpan. Cek koneksi internet.","error");
+    }
 }

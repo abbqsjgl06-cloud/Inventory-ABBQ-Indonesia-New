@@ -87,7 +87,7 @@
       </div>
 
       <div class="info-box">
-        <b>Cara baca kolom Forecast:</b> estimasi stock saat ini (dihitung dari stock opname terakhir dikurangi usage sejak saat itu) dibandingkan dengan perkiraan kebutuhan sampai tanggal Cover Until. Forecast = kebutuhan − estimasi stock (minimal 0). Angka di kolom Qty Order sudah otomatis terisi dari Forecast, tapi bisa diubah manual.
+        <b>Cara baca kolom Forecast:</b> estimasi stock saat ini (dihitung dari stock opname terakhir dikurangi usage sejak saat itu) dibandingkan dengan perkiraan kebutuhan sampai tanggal Cover Until. Forecast = kebutuhan − estimasi stock (minimal 0). Angka di kolom Qty Order sudah otomatis terisi dari Forecast, tapi bisa diubah manual. Rata-rata harian dihitung dari 30 hari data usage terakhir — kalau data yang ter-upload belum sampai 30 hari, rata-rata dihitung dari jumlah hari yang tersedia (bukan dipaksa dibagi 30) supaya angkanya tidak under-estimate.
       </div>
 
       <div class="panel">
@@ -167,6 +167,6 @@
 <script src="../shared/xlsx.full.min.js?v=31"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=31"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

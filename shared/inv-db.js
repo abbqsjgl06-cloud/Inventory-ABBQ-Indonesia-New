@@ -37,7 +37,8 @@ const InvDB = (() => {
         settings: "key",
         eodSnapshots: "id",
         accounts: "email",
-        outlets: "id"
+        outlets: "id",
+        supplierItems: "code"
     };
 
     // Collections whose documents get tagged & filtered by outlet.
@@ -51,6 +52,7 @@ const InvDB = (() => {
     // accounts) behaves exactly as before - nothing changes automatically.
     const OUTLET_SCOPED = new Set([
         "goodsReceipt", "transfer", "usageImports", "usageDetail",
+        "usageDailyMaterial", "usageDailyMenu",
         "stockOpname", "wasteRecords", "eodSnapshots", "brokenChickenRecords",
         "cashHandover", "remittanceOfFund", "pettyCashUsage", "forecastOrders"
     ]);

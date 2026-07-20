@@ -116,6 +116,38 @@
       </table>
     </div>
   </div>
+  <div class="panel">
+    <div class="panel-title">📈 Lihat Usage Harian &amp; Rata-rata 30 Hari</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+      Cari 1 item bahan baku untuk lihat usage per tanggal (dari data yang sudah diupload dengan kolom tanggal) dan rata-rata harian 30 hari terakhir — angka rata-rata ini yang dipakai Forecasting Ordering.
+    </p>
+    <div class="field">
+      <input type="text" id="dailyUsageSearch" placeholder="Cari kode atau nama bahan baku...">
+    </div>
+    <div id="dailyUsageResult" style="display:none;">
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Total 30 Hari</div>
+          <div class="summary-value" id="dailyUsageTotal">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Rata-rata / Hari</div>
+          <div class="summary-value" id="dailyUsageAvg">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Hari Ada Data</div>
+          <div class="summary-value" id="dailyUsageDaysCount">0</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tanggal</th><th class="num">Qty Terpakai</th></tr></thead>
+          <tbody id="dailyUsageBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="dailyUsageEmpty" style="display:none;font-size:12px;color:var(--muted);">Belum ada data usage harian untuk item ini dalam 30 hari terakhir.</div>
+  </div>
 
 </main>
 
@@ -132,6 +164,6 @@
 <script src="../shared/seed-data.js?v=25"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
-<script src="app.js?v=34"></script>
+<script src="app.js?v=36"></script>
 </body>
 </html>
