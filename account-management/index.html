@@ -158,10 +158,11 @@
   <div class="panel" style="border:2px solid #1C6B8C;">
     <div class="panel-title">📋 Buat Banyak Outlet &amp; Akun Sekaligus</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      Tempel daftar kode outlet (1 baris = 1 outlet). Untuk tiap kode, sistem otomatis membuat:
-      1 outlet baru dengan ID = kode (huruf kecil), dan 1 akun login dengan email
-      <code>{kode}@abbq-system.local</code>, role User, dan password default di bawah ini.
-      Kode yang outlet/akunnya <b>sudah ada</b> akan dilewati otomatis (tidak menimpa yang sudah ada).
+      Tempel daftar kode outlet (1 baris = 1 outlet). Ada 2 tombol di bawah:
+      <b>"Buat Semua Sekaligus"</b> kalau Cloud Functions sudah aktif (bikin login Firebase Auth
+      otomatis), atau <b>"Hubungkan ke Outlet Saja"</b> kalau login-nya sudah Anda buat manual lewat
+      Firebase Console (Authentication → Add User) - tinggal disambungkan ke Role &amp; Outlet-nya di sini,
+      tanpa perlu Cloud Functions sama sekali. Kode yang outlet/akunnya <b>sudah ada</b> akan dilewati/ditimpa dengan aman.
     </p>
     <div class="field">
       <label>Daftar Kode Outlet (1 per baris)</label>
@@ -182,7 +183,8 @@ SBSD</textarea>
       <label>Password Default untuk Semua Akun Baru (min. 6 karakter)</label>
       <input type="password" id="bulkPassword" autocomplete="off" placeholder="Bisa diganti per-akun nanti lewat Reset Password">
     </div>
-    <button class="btn btn-secondary" style="border-color:#1C6B8C;color:#1C6B8C;" onclick="bulkCreateOutlets()">Buat Semua Sekaligus</button>
+    <button class="btn btn-secondary" style="border-color:#1C6B8C;color:#1C6B8C;" onclick="bulkCreateOutlets()">Buat Semua Sekaligus (perlu Cloud Functions)</button>
+    <button class="btn btn-secondary" style="border-color:#1E7E34;color:#1E7E34;margin-top:8px;" onclick="bulkLinkOutlets()">Hubungkan ke Outlet Saja (login sudah dibuat manual di Firebase Console)</button>
     <div id="bulkResult" style="font-size:13px;margin-top:10px;white-space:pre-line;"></div>
   </div>
 
@@ -257,6 +259,6 @@ SBSD</textarea>
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=33"></script>
-<script src="app.js?v=42"></script>
+<script src="app.js?v=43"></script>
 </body>
 </html>

@@ -145,6 +145,61 @@ async function bulkCreateOutlets() {
     toast("✓ Proses buat banyak outlet & akun selesai - cek hasil per baris di bawah", "success");
 }
 
+// Versi TANPA Cloud Functions - dipakai kalau login Firebase Auth-nya
+// sudah dibuat manual lewat Firebase Console (Authentication > Add
+// User). Di sini kita cuma pastikan outlet-nya ada, lalu tulis
+// dokumen accounts (role + outletId) langsung ke Firestore - persis
+// seperti tombol "Simpan Akun" di panel atas, tapi loop utk banyak
+// kode sekaligus. Tidak butuh Blaze/deploy sama sekali.
+async function bulkLinkOutlets() {
+    const raw = document.getElementById("bulkOutletCodes").value;
+    const resultEl = document.getElementById("bulkResult");
+    resultEl.textContent = "";
+
+    const codes = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    if (codes.length === 0) { toast("Isi daftar kode outlet dulu", "error"); return; }
+
+    if (!await uiConfirm(`Hubungkan ${codes.length} akun (yang login-nya SUDAH dibuat manual di Firebase Console) ke outlet masing-masing? Pastikan email di Firebase Console persis {kode}@abbq-system.local.`)) return;
+
+    resultEl.textContent = "Memproses, mohon tunggu...\n";
+    const lines = [];
+
+    for (const rawCode of codes) {
+        const id = rawCode.toLowerCase().replace(/\s+/g, "-");
+        const email = `${id}@abbq-system.local`;
+
+        try {
+            if (!OUTLETS.some(o => o.id === id)) {
+                await InvDB.put("outlets", { id, name: rawCode, createdAt: new Date().toISOString() });
+                OUTLETS.push({ id, name: rawCode });
+            }
+
+            await InvDB.put("accounts", { email, role: "user", outletId: id, updatedAt: new Date().toISOString() });
+            const existing = ACCOUNTS.find(a => a.email === email);
+            if (existing) { existing.role = "user"; existing.outletId = id; }
+            else ACCOUNTS.push({ email, role: "user", outletId: id });
+
+            // Best-effort custom claims, sama seperti addAccount() - aman
+            // di-skip kalau Cloud Functions belum aktif.
+            try {
+                const fn = getFns().httpsCallable("setAccountClaims");
+                await fn({ email, role: "user", outletId: id });
+            } catch (e) { /* silently no-op, lihat komentar di addAccount() */ }
+
+            lines.push(`✓ ${rawCode}: dihubungkan ke ${email}`);
+        } catch (err) {
+            console.error(`Gagal hubungkan ${rawCode}:`, err);
+            lines.push(`✗ ${rawCode}: GAGAL (${(err && err.message) || err})`);
+        }
+
+        resultEl.textContent = lines.join("\n");
+    }
+
+    await loadOutlets();
+    await loadAccounts();
+    toast("✓ Selesai menghubungkan akun ke outlet - coba login salah satu untuk tes", "success");
+}
+
 async function resetAccountPassword() {
     const email = document.getElementById("resetAcctEmail").value;
     const newPassword = document.getElementById("resetAcctPassword").value;
