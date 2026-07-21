@@ -13,6 +13,26 @@
   thead th{background:var(--accent-tint);position:sticky;top:0;}
   .table-wrap{max-height:70vh;overflow:auto;}
   .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;margin:10px 0;}
+
+  /* Tabel ringkas - kolom kategori & kode dilepas dari tabel (lihat
+     app.js), font & padding dikecilkan, kolom tanggal dibuat sempit,
+     dan kolom nama menu di-"stick" di kiri supaya tetap kelihatan
+     walau tabelnya perlu digeser (kalau rentang tanggalnya panjang). */
+  #reportHead th, #reportBody td{
+    font-size:12px;
+    padding:6px 8px;
+    white-space:nowrap;
+  }
+  #reportHead th:first-child, #reportBody td:first-child{
+    white-space:normal;
+    max-width:140px;
+    position:sticky;
+    left:0;
+    background:var(--card,#fff);
+    z-index:5;
+  }
+  #reportHead th:first-child{ background:var(--accent-tint); z-index:6; }
+  #reportBody td.num{ text-align:right; }
 </style>
 </head>
 <body>
@@ -89,6 +109,6 @@
 <script src="../shared/auth-guard.js?v=44"></script>
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=38"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

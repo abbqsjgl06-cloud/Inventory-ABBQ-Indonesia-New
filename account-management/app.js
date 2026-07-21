@@ -229,6 +229,14 @@ function populateOutletSelect() {
         sel.innerHTML = options;
         sel.value = current;
     });
+
+    const sourceSel = document.getElementById("migrateSourceSelect");
+    if(sourceSel){
+        const current = sourceSel.value;
+        sourceSel.innerHTML = `<option value="">— Data lama tanpa outlet —</option>` +
+            OUTLETS.map(o => `<option value="${o.id}">${o.name}</option>`).join("");
+        sourceSel.value = current;
+    }
 }
 
 /* ==========================================
@@ -319,36 +327,55 @@ function toast(msg, type = "success") {
 }
 
 /* ==========================================
-   MIGRASI DATA LAMA (tanpa outletId) KE 1 OUTLET
-   Dipakai sekali saja setelah pindah ke sistem
-   multi-outlet, supaya riwayat lama (dibuat
-   sebelum outlet ada) tidak "hilang" dari akun
-   yang sekarang sudah di-set ke outlet tertentu.
+   MIGRASI DATA ANTAR OUTLET
+   Dua mode:
+   1. Outlet Asal = "" (data lama tanpa outlet) -> menandai data yang
+      belum punya outletId sama sekali sebagai milik outlet tujuan.
+      Dipakai sekali saja setelah pindah ke sistem multi-outlet.
+   2. Outlet Asal = outlet tertentu -> memindahkan SEMUA data yang
+      sudah bertanda outlet itu ke outlet tujuan (mis. outlet
+      ditutup/digabung, atau salah pilih outlet sebelumnya).
 ========================================== */
 
 const MIGRATE_COLLECTIONS = [
     "goodsReceipt", "transfer", "usageImports", "usageDetail",
-    "stockOpname", "wasteRecords", "eodSnapshots"
+    "usageDailyMaterial", "usageDailyMenu",
+    "stockOpname", "wasteRecords", "eodSnapshots", "forecastOrders"
 ];
 
 async function migrateLegacyDataToOutlet() {
-    const outletId = document.getElementById("migrateOutletSelect").value;
+    const sourceOutletId = document.getElementById("migrateSourceSelect").value; // "" = data lama tanpa outlet
+    const destOutletId = document.getElementById("migrateOutletSelect").value;
     const resultEl = document.getElementById("migrateResult");
 
-    if (!outletId) {
+    if (!destOutletId) {
         toast("Pilih outlet tujuan dulu", "error");
+        return;
+    }
+    if (sourceOutletId === destOutletId) {
+        toast("Outlet Asal dan Outlet Tujuan tidak boleh sama", "error");
         return;
     }
 
     if (window.CURRENT_OUTLET_ID) {
-        toast('Set dulu outlet switcher (pojok kiri atas) ke "🏬 Semua Outlet" sebelum migrasi, supaya data lama ikut terbaca.', "error");
+        toast('Set dulu outlet switcher (pojok kiri atas) ke "🏬 Semua Outlet" sebelum migrasi, supaya semua data ikut terbaca.', "error");
         return;
     }
 
-    const outlet = OUTLETS.find(o => o.id === outletId);
-    const outletName = outlet ? outlet.name : outletId;
+    const destOutlet = OUTLETS.find(o => o.id === destOutletId);
+    const destName = destOutlet ? destOutlet.name : destOutletId;
 
-    if (!await uiConfirm(`Tandai SEMUA data lama yang belum punya outlet sebagai milik "${outletName}"?\n\nIni hanya memengaruhi data yang BELUM punya outlet sama sekali - data yang sudah tertandai outlet lain tidak akan diubah. Aksi ini tidak bisa di-undo otomatis.`)) return;
+    let sourceName, confirmMsg;
+    if (!sourceOutletId) {
+        sourceName = "data lama tanpa outlet";
+        confirmMsg = `Tandai SEMUA data lama yang belum punya outlet sebagai milik "${destName}"?\n\nIni hanya memengaruhi data yang BELUM punya outlet sama sekali - data yang sudah tertandai outlet lain tidak akan diubah. Aksi ini tidak bisa di-undo otomatis.`;
+    } else {
+        const srcOutlet = OUTLETS.find(o => o.id === sourceOutletId);
+        sourceName = srcOutlet ? srcOutlet.name : sourceOutletId;
+        confirmMsg = `Pindahkan SEMUA riwayat data milik "${sourceName}" ke "${destName}"?\n\nSemua data yang saat ini bertanda outlet "${sourceName}" akan berubah menjadi milik "${destName}". Aksi ini tidak bisa di-undo otomatis.`;
+    }
+
+    if (!await uiConfirm(confirmMsg)) return;
 
     resultEl.textContent = "Memproses, mohon tunggu...";
     let totalTagged = 0;
@@ -357,21 +384,23 @@ async function migrateLegacyDataToOutlet() {
     for (const col of MIGRATE_COLLECTIONS) {
         try {
             const all = await InvDB.getAll(col);
-            const untagged = all.filter(d => !d.outletId);
+            const matching = sourceOutletId
+                ? all.filter(d => d.outletId === sourceOutletId)
+                : all.filter(d => !d.outletId);
 
-            for (const doc of untagged) {
-                doc.outletId = outletId;
+            for (const doc of matching) {
+                doc.outletId = destOutletId;
                 await InvDB.put(col, doc);
             }
 
-            totalTagged += untagged.length;
-            perCollection.push(`${col}: ${untagged.length} baris`);
+            totalTagged += matching.length;
+            perCollection.push(`${col}: ${matching.length} baris`);
         } catch (err) {
             console.error(`Gagal migrasi koleksi ${col}:`, err);
             perCollection.push(`${col}: GAGAL (${err.message || err})`);
         }
     }
 
-    resultEl.textContent = `✓ Selesai. Total ${totalTagged} baris ditandai ke "${outletName}":\n` + perCollection.join("\n");
+    resultEl.textContent = `✓ Selesai. Total ${totalTagged} baris dipindah dari "${sourceName}" ke "${destName}":\n` + perCollection.join("\n");
     toast(`✓ Migrasi selesai (${totalTagged} baris)`, "success");
 }

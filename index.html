@@ -251,6 +251,65 @@
     letter-spacing:.08em;
     color:var(--muted);
   }
+
+  /* ---------- Category-first home screen ---------- */
+  .cat-grid{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .cat-card{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px;
+    text-align:left;
+    width:100%;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+    box-shadow:0 1px 2px rgba(28,27,25,.04);
+  }
+  .cat-card:active{ transform:scale(.98); }
+  .cat-card:hover{ box-shadow:0 8px 20px rgba(28,27,25,.08); }
+  .cat-icon{
+    flex:none;
+    width:52px;
+    height:52px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+  }
+  .cat-body{ flex:1; min-width:0; }
+  .cat-title{ font-size:17px; font-weight:800; margin-bottom:2px; }
+  .cat-desc{ font-size:13px; color:var(--muted); }
+  .cat-chevron{ flex:none; color:var(--line); font-size:20px; font-weight:700; }
+
+  .back-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:2px 4px 18px;
+  }
+  .back-btn-inline{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 16px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .back-btn-inline:active{ transform:scale(.97); }
+
+  .category-section{ display:none; }
+  .category-section.active{ display:block; }
+  #categoryHome.hidden{ display:none; }
 </style>
 </head>
 <body>
@@ -269,148 +328,251 @@
 
 <main>
 
-  <div class="section-label">Input Harian</div>
-  <nav class="menu">
+  <div class="cat-grid" id="categoryHome">
 
-    <a class="menu-card accent-stock" href="stock-opname/index.html">
-      <div class="icon-wrap icon-stock">📋</div>
-      <div class="card-body">
-        <div class="card-title">Stock Opname</div>
-        <div class="card-desc">Input stok Kitchen &amp; Frontliner, Daily maupun WM.</div>
+    <button class="cat-card" onclick="showCategory('harian')">
+      <div class="cat-icon" style="background:var(--stock-tint);">📋</div>
+      <div class="cat-body">
+        <div class="cat-title">Input Harian</div>
+        <div class="cat-desc">Stock Opname, Waste Tracker, Barang Masuk, Transfer, Financial</div>
       </div>
-      <div class="chevron">›</div>
-    </a>
+      <div class="cat-chevron">›</div>
+    </button>
 
-    <a class="menu-card accent-waste" href="waste-tracker/index.html">
-      <div class="icon-wrap icon-waste">🗑️</div>
-      <div class="card-body">
-        <div class="card-title">Waste Tracker</div>
-        <div class="card-desc">Catat &amp; pantau waste harian, foto bukti, dan riwayat.</div>
+    <button class="cat-card" onclick="showCategory('tutup')">
+      <div class="cat-icon" style="background:var(--eod-tint);">🔒</div>
+      <div class="cat-body">
+        <div class="cat-title">Tutup Hari</div>
+        <div class="cat-desc">Checklist End of Day</div>
       </div>
-      <div class="chevron">›</div>
-    </a>
+      <div class="cat-chevron">›</div>
+    </button>
 
-    <a class="menu-card accent-receipt" href="goods-receipt/index.html">
-      <div class="icon-wrap icon-receipt">📦</div>
-      <div class="card-body">
-        <div class="card-title">Barang Masuk</div>
-        <div class="card-desc">Input kedatangan barang dari Central Kitchen atau Supplier.</div>
+    <button class="cat-card" onclick="showCategory('laporan')">
+      <div class="cat-icon" style="background:var(--forecast-tint);">📊</div>
+      <div class="cat-body">
+        <div class="cat-title">Laporan &amp; Analisa</div>
+        <div class="cat-desc">Import Usage, Forecasting Ordering, Variance, Rekap Menu, BOM</div>
       </div>
-      <div class="chevron">›</div>
-    </a>
+      <div class="cat-chevron">›</div>
+    </button>
 
-    <a class="menu-card accent-transfer" href="transfer/index.html">
-      <div class="icon-wrap icon-transfer">🔄</div>
-      <div class="card-body">
-        <div class="card-title">Transfer Stock</div>
-        <div class="card-desc">Catat Transfer In &amp; Transfer Out antar outlet.</div>
+    <button class="cat-card" onclick="showCategory('pengaturan')">
+      <div class="cat-icon" style="background:var(--master-tint);">🗂️</div>
+      <div class="cat-body">
+        <div class="cat-title">Pengaturan</div>
+        <div class="cat-desc">Master Data, Kelola Akun</div>
       </div>
-      <div class="chevron">›</div>
-    </a>
+      <div class="cat-chevron">›</div>
+    </button>
 
-    <a class="menu-card accent-financial" href="financial/index.html">
-      <div class="icon-wrap icon-financial">💰</div>
-      <div class="card-body">
-        <div class="card-title">Financial</div>
-        <div class="card-desc">Cash Handover &amp; Remittance of Fund harian.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+  </div>
 
-  </nav>
+  <div class="category-section" id="cat-harian">
+    <div class="back-row">
+      <button class="back-btn-inline" onclick="backToCategories()">← Menu</button>
+    </div>
+    <div class="section-label">Input Harian</div>
+    <nav class="menu">
 
-  <div class="section-label">Tutup Hari</div>
-  <nav class="menu">
+      <a class="menu-card accent-stock" href="stock-opname/index.html">
+        <div class="icon-wrap icon-stock">📋</div>
+        <div class="card-body">
+          <div class="card-title">Stock Opname</div>
+          <div class="card-desc">Input stok Kitchen &amp; Frontliner, Daily maupun WM.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-eod" href="end-of-day/index.html">
-      <div class="icon-wrap icon-eod">🔒</div>
-      <div class="card-body">
-        <div class="card-title">End of Day</div>
-        <div class="card-desc">Checklist harian &amp; tutup business date setelah semua input selesai.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+      <a class="menu-card accent-waste" href="waste-tracker/index.html">
+        <div class="icon-wrap icon-waste">🗑️</div>
+        <div class="card-body">
+          <div class="card-title">Waste Tracker</div>
+          <div class="card-desc">Catat &amp; pantau waste harian, foto bukti, dan riwayat.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-  </nav>
+      <a class="menu-card accent-receipt" href="goods-receipt/index.html">
+        <div class="icon-wrap icon-receipt">📦</div>
+        <div class="card-body">
+          <div class="card-title">Barang Masuk</div>
+          <div class="card-desc">Input kedatangan barang dari Central Kitchen atau Supplier.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-  <div class="section-label">Laporan &amp; Analisa</div>
-  <nav class="menu">
+      <a class="menu-card accent-transfer" href="transfer/index.html">
+        <div class="icon-wrap icon-transfer">🔄</div>
+        <div class="card-body">
+          <div class="card-title">Transfer Stock</div>
+          <div class="card-desc">Catat Transfer In &amp; Transfer Out antar outlet.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-usage" href="usage-import/index.html">
-      <div class="icon-wrap icon-usage">📥</div>
-      <div class="card-body">
-        <div class="card-title">Import Usage</div>
-        <div class="card-desc">Upload data penjualan, otomatis diterjemahkan ke bahan baku via BOM.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+      <a class="menu-card accent-financial" href="financial/index.html">
+        <div class="icon-wrap icon-financial">💰</div>
+        <div class="card-body">
+          <div class="card-title">Financial</div>
+          <div class="card-desc">Cash Handover &amp; Remittance of Fund harian.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-forecast" href="forecast-order/index.html">
-      <div class="icon-wrap icon-forecast">📦</div>
-      <div class="card-body">
-        <div class="card-title">Forecasting Ordering</div>
-        <div class="card-desc">Perkiraan kebutuhan order berdasarkan stock &amp; usage, lengkap dengan riwayat.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+    </nav>
+  </div>
 
-    <a class="menu-card accent-variance" href="variance-report/index.html">
-      <div class="icon-wrap icon-variance">📊</div>
-      <div class="card-body">
-        <div class="card-title">Laporan Variance</div>
-        <div class="card-desc">Analisa variance: opening, mutasi stock, expected vs ending stock.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+  <div class="category-section" id="cat-tutup">
+    <div class="back-row">
+      <button class="back-btn-inline" onclick="backToCategories()">← Menu</button>
+    </div>
+    <div class="section-label">Tutup Hari</div>
+    <nav class="menu">
 
-    <a class="menu-card accent-rekap" href="rekap-menu/index.html">
-      <div class="icon-wrap icon-rekap">🧾</div>
-      <div class="card-body">
-        <div class="card-title">Rekap Menu</div>
-        <div class="card-desc">Qty terjual per menu, per tanggal, per kategori — dari data Import Usage.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+      <a class="menu-card accent-eod" href="end-of-day/index.html">
+        <div class="icon-wrap icon-eod">🔒</div>
+        <div class="card-body">
+          <div class="card-title">End of Day</div>
+          <div class="card-desc">Checklist harian &amp; tutup business date setelah semua input selesai.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-bom" href="bom-appetizer/index.html">
-      <div class="icon-wrap icon-bom">🍢</div>
-      <div class="card-body">
-        <div class="card-title">Kalkulator BOM Appetizer</div>
-        <div class="card-desc">Hitung kebutuhan bahan baku berdasarkan jumlah porsi.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+    </nav>
+  </div>
 
-  </nav>
+  <div class="category-section" id="cat-laporan">
+    <div class="back-row">
+      <button class="back-btn-inline" onclick="backToCategories()">← Menu</button>
+    </div>
+    <div class="section-label">Laporan &amp; Analisa</div>
+    <nav class="menu">
 
-  <div class="section-label">Pengaturan</div>
-  <nav class="menu">
+      <a class="menu-card accent-usage" href="usage-import/index.html">
+        <div class="icon-wrap icon-usage">📥</div>
+        <div class="card-body">
+          <div class="card-title">Import Usage</div>
+          <div class="card-desc">Upload data penjualan, otomatis diterjemahkan ke bahan baku via BOM.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-master" href="master-data/index.html">
-      <div class="icon-wrap icon-master">🗂️</div>
-      <div class="card-body">
-        <div class="card-title">Master Data</div>
-        <div class="card-desc">Kelola item bahan baku, resep/BOM menu, dan nama outlet.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+      <a class="menu-card accent-forecast" href="forecast-order/index.html">
+        <div class="icon-wrap icon-forecast">📦</div>
+        <div class="card-body">
+          <div class="card-title">Forecasting Ordering</div>
+          <div class="card-desc">Perkiraan kebutuhan order berdasarkan stock &amp; usage, lengkap dengan riwayat.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-    <a class="menu-card accent-master" id="acctMgmtCard" href="account-management/index.html" style="display:none;">
-      <div class="icon-wrap icon-master">👤</div>
-      <div class="card-body">
-        <div class="card-title">Kelola Akun</div>
-        <div class="card-desc">Ganti password, kelola outlet, dan atur role akun. Khusus Admin.</div>
-      </div>
-      <div class="chevron">›</div>
-    </a>
+      <a class="menu-card accent-variance" href="variance-report/index.html">
+        <div class="icon-wrap icon-variance">📊</div>
+        <div class="card-body">
+          <div class="card-title">Laporan Variance</div>
+          <div class="card-desc">Analisa variance: opening, mutasi stock, expected vs ending stock.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
 
-  </nav>
+      <a class="menu-card accent-rekap" href="rekap-menu/index.html">
+        <div class="icon-wrap icon-rekap">🧾</div>
+        <div class="card-body">
+          <div class="card-title">Rekap Menu</div>
+          <div class="card-desc">Qty terjual per menu, per tanggal, per kategori — dari data Import Usage.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+      <a class="menu-card accent-bom" href="bom-appetizer/index.html">
+        <div class="icon-wrap icon-bom">🍢</div>
+        <div class="card-body">
+          <div class="card-title">Kalkulator BOM Appetizer</div>
+          <div class="card-desc">Hitung kebutuhan bahan baku berdasarkan jumlah porsi.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+    </nav>
+  </div>
+
+  <div class="category-section" id="cat-pengaturan">
+    <div class="back-row">
+      <button class="back-btn-inline" onclick="backToCategories()">← Menu</button>
+    </div>
+    <div class="section-label">Pengaturan</div>
+    <nav class="menu">
+
+      <a class="menu-card accent-master" href="master-data/index.html">
+        <div class="icon-wrap icon-master">🗂️</div>
+        <div class="card-body">
+          <div class="card-title">Master Data</div>
+          <div class="card-desc">Kelola item bahan baku, resep/BOM menu, dan nama outlet.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+      <a class="menu-card accent-master" id="acctMgmtCard" href="account-management/index.html" style="display:none;">
+        <div class="icon-wrap icon-master">👤</div>
+        <div class="card-body">
+          <div class="card-title">Kelola Akun</div>
+          <div class="card-desc">Ganti password, kelola outlet, dan atur role akun. Khusus Admin.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+    </nav>
+  </div>
+
 </main>
 
-<footer>
+<footer id="mainFooter">
   <div class="brand">Inventory ABBQ Indonesia</div>
   <div class="code">FDL © 2026</div>
 </footer>
+
+<script>
+  const CATEGORY_IDS = ["harian", "tutup", "laporan", "pengaturan"];
+
+  function showCategory(id){
+    document.getElementById("categoryHome").classList.add("hidden");
+    CATEGORY_IDS.forEach(cid => {
+      document.getElementById("cat-" + cid).classList.toggle("active", cid === id);
+    });
+    document.getElementById("mainFooter").style.display = "none";
+    window.scrollTo(0, 0);
+    if(location.hash !== "#" + id) history.pushState({ cat: id }, "", "#" + id);
+  }
+
+  function backToCategories(){
+    document.getElementById("categoryHome").classList.remove("hidden");
+    CATEGORY_IDS.forEach(cid => {
+      document.getElementById("cat-" + cid).classList.remove("active");
+    });
+    document.getElementById("mainFooter").style.display = "";
+    window.scrollTo(0, 0);
+    if(location.hash) history.pushState({}, "", location.pathname + location.search);
+  }
+
+  // Dukung tombol Back HP: kalau lagi buka 1 kategori, tombol back
+  // kembali ke daftar kategori dulu (bukan langsung keluar app/login).
+  window.addEventListener("popstate", () => {
+    const id = location.hash.replace("#", "");
+    if(CATEGORY_IDS.includes(id)){
+      showCategory(id);
+    } else {
+      backToCategories();
+    }
+  });
+
+  // Kalau dibuka lewat link langsung dengan #hash (mis. dari bookmark),
+  // langsung buka kategori itu.
+  (function initFromHash(){
+    const id = location.hash.replace("#", "");
+    if(CATEGORY_IDS.includes(id)) showCategory(id);
+  })();
+</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
@@ -420,7 +582,7 @@
 <script src="shared/auth-guard.js?v=44"></script>
 <script src="shared/chat-widget.js?v=2"></script>
 <script src="shared/inv-db.js?v=38"></script>
-<script src="app.js?v=34"></script>
+<script src="app.js?v=35"></script>
 <script>
   (async () => {
     try {

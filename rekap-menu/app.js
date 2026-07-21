@@ -154,11 +154,15 @@ function renderReport(){
 
     const onlyWithSales = document.getElementById("onlyWithSales").checked;
     const visibleRows = onlyWithSales ? rows.filter(r => r.total > 0) : rows;
+    const colCount = 1 + dates.length + 1; // Nama Menu + tanggal + Total
 
-    // Header tanggal
+    // Header tanggal - hanya tanggal (MM-DD) supaya ringkas, kolom
+    // Kategori & Kode dihilangkan dari tabel (kategori sudah ada
+    // sebagai baris judul, kode dipindah jadi subtitle kecil di bawah
+    // nama menu) supaya tabel muat di layar HP tanpa perlu digeser.
     const dateHeaderHtml = dates.map(d => `<th class="num">${d.slice(5)}</th>`).join("");
     document.getElementById("reportHead").innerHTML =
-        `<th>Kategori</th><th>Kode</th><th>Nama Menu</th>${dateHeaderHtml}<th class="num">Total</th>`;
+        `<th>Menu</th>${dateHeaderHtml}<th class="num">Total</th>`;
 
     // Body dikelompokkan per kategori dengan baris judul kategori
     let html = "";
@@ -170,9 +174,9 @@ function renderReport(){
     visibleRows.forEach(r => {
         if(r.category !== currentCat){
             currentCat = r.category;
-            html += `<tr style="background:var(--accent-tint);"><td colspan="${3 + dates.length + 1}" style="font-weight:800;">${currentCat}</td></tr>`;
+            html += `<tr><td colspan="${colCount}" style="font-weight:800;background:var(--accent-tint);position:sticky;left:0;">${currentCat}</td></tr>`;
         }
-        html += `<tr><td></td><td>${r.code}</td><td>${r.name}</td>` +
+        html += `<tr><td>${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.code}</small></td>` +
             dates.map(d => `<td class="num">${r.byDate[d] || ""}</td>`).join("") +
             `<td class="num" style="font-weight:700;">${r.total}</td></tr>`;
 
@@ -181,9 +185,9 @@ function renderReport(){
     });
 
     if(visibleRows.length === 0){
-        html = `<tr><td colspan="${3 + dates.length + 1}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
+        html = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
     } else {
-        html += `<tr style="font-weight:800;border-top:2px solid var(--ink);"><td colspan="3">TOTAL</td>` +
+        html += `<tr style="font-weight:800;border-top:2px solid var(--ink);"><td>TOTAL</td>` +
             dates.map(d => `<td class="num">${grandTotalByDate[d] || ""}</td>`).join("") +
             `<td class="num">${grandTotal}</td></tr>`;
     }
