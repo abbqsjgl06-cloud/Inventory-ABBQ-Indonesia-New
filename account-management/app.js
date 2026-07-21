@@ -84,6 +84,67 @@ async function createOutletAccount() {
     }
 }
 
+/* ==========================================
+   BUAT BANYAK OUTLET & AKUN SEKALIGUS
+   Dipakai sekali waktu upgrade ke banyak outlet -
+   loop tiap kode yang ditempel, buat outlet (kalau
+   belum ada) + akun login (kalau belum ada), pakai
+   password default yang sama utk semua akun baru.
+========================================== */
+
+async function bulkCreateOutlets() {
+    const raw = document.getElementById("bulkOutletCodes").value;
+    const password = document.getElementById("bulkPassword").value;
+    const resultEl = document.getElementById("bulkResult");
+    resultEl.textContent = "";
+
+    const codes = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    if (codes.length === 0) { toast("Isi daftar kode outlet dulu", "error"); return; }
+    if (password.length < 6) { toast("Password default minimal 6 karakter", "error"); return; }
+
+    if (!await uiConfirm(`Buat ${codes.length} outlet & akun baru sekaligus? Kode yang sudah ada akan dilewati otomatis.`)) return;
+
+    resultEl.textContent = "Memproses, mohon tunggu...\n";
+    const lines = [];
+
+    for (const rawCode of codes) {
+        const id = rawCode.toLowerCase().replace(/\s+/g, "-");
+        const email = `${id}@abbq-system.local`;
+
+        if (OUTLETS.some(o => o.id === id) && ACCOUNTS.some(a => a.email === email)) {
+            lines.push(`⏭ ${rawCode}: dilewati (outlet & akun sudah ada)`);
+            resultEl.textContent = lines.join("\n");
+            continue;
+        }
+
+        try {
+            if (!OUTLETS.some(o => o.id === id)) {
+                await InvDB.put("outlets", { id, name: rawCode, createdAt: new Date().toISOString() });
+                OUTLETS.push({ id, name: rawCode });
+            }
+
+            if (!ACCOUNTS.some(a => a.email === email)) {
+                const fn = getFns().httpsCallable("createOutletAccount");
+                await fn({ email, password, role: "user", outletId: id });
+                await InvDB.put("accounts", { email, role: "user", outletId: id, updatedAt: new Date().toISOString() });
+                ACCOUNTS.push({ email, role: "user", outletId: id });
+                lines.push(`✓ ${rawCode}: outlet + akun ${email} dibuat`);
+            } else {
+                lines.push(`✓ ${rawCode}: outlet dibuat (akun ${email} sudah ada sebelumnya)`);
+            }
+        } catch (err) {
+            console.error(`Gagal buat outlet/akun ${rawCode}:`, err);
+            lines.push(`✗ ${rawCode}: GAGAL (${(err && err.message) || err})`);
+        }
+
+        resultEl.textContent = lines.join("\n");
+    }
+
+    await loadOutlets();
+    await loadAccounts();
+    toast("✓ Proses buat banyak outlet & akun selesai - cek hasil per baris di bawah", "success");
+}
+
 async function resetAccountPassword() {
     const email = document.getElementById("resetAcctEmail").value;
     const newPassword = document.getElementById("resetAcctPassword").value;
