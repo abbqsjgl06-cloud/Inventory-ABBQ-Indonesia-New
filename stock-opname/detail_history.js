@@ -171,7 +171,7 @@ function exportHistoryExcel() {
 
             "No": item.nomor,
 
-            "Kode": item.kode,
+            "Kode": (/^[0-9]+$/.test(String(item.kode).trim()) ? Number(item.kode) : item.kode),
 
             "Item": item.item,
 

@@ -30,7 +30,7 @@ function exportExcel() {
                 row.cells[0].innerText,
 
             "Kode":
-                row.cells[1].innerText,
+                (function(v){ v = v.trim(); return /^[0-9]+$/.test(v) ? Number(v) : v; })(row.cells[1].innerText),
 
             "Item":
                 row.cells[2].innerText,
