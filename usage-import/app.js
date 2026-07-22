@@ -132,7 +132,16 @@ function handleFile(e){
     reader.onload = (evt) => {
         try {
             const data = new Uint8Array(evt.target.result);
-            const wb = XLSX.read(data, { type: "array", cellDates: true });
+            // PENTING: cellDates TIDAK dipakai di sini dengan sengaja.
+            // Serial tanggal Excel tidak punya konsep zona waktu (cuma
+            // hitungan hari) - begitu SheetJS mengubahnya jadi objek
+            // Date (cellDates:true) lalu kita baca lagi pakai
+            // .toISOString(), tanggalnya bisa bergeser +/-1 hari
+            // tergantung timezone komputer/HP yang dipakai upload.
+            // Dengan dibiarkan raw (angka serial), parseFlexibleDate()
+            // di bawah yang mengonversi sendiri lewat SSF.parse_date_code
+            // + Date.UTC secara konsisten - tidak peduli timezone device.
+            const wb = XLSX.read(data, { type: "array" });
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
             PARSED_ROWS = rows;
