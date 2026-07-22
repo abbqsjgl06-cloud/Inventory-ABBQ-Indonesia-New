@@ -52,10 +52,9 @@ function initDailyUsageAutocomplete(){
 
     function render(){
         const key = input.value.trim().toLowerCase();
-        const matches = (key
+        const matches = key
             ? MATERIALS_FOR_LOOKUP.filter(m => String(m.code).toLowerCase().includes(key) || (m.name||"").toLowerCase().includes(key))
-            : MATERIALS_FOR_LOOKUP
-        ).slice(0, 30);
+            : MATERIALS_FOR_LOOKUP;
 
         if(matches.length === 0){
             list.innerHTML = `<div class="suggest-item" style="cursor:default;color:var(--muted);">Item tidak ditemukan</div>`;

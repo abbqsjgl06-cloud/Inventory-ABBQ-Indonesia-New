@@ -63,7 +63,10 @@ function assertIsAdmin(context) {
 }
 
 function normalizeRoleOutlet(data) {
-    const role = data.role === "admin" ? "admin" : "user";
+    const role = (data.role === "admin" || data.role === "viewer") ? data.role : "user";
+    // Admin selalu "" (lihat semua outlet, tidak bisa dibatasi).
+    // Viewer & User boleh diisi outlet spesifik; Viewer juga boleh
+    // dikosongkan (= lihat semua outlet, seperti Admin).
     const outletId = role === "admin" ? "" : String(data.outletId || "").trim();
     return { role, outletId };
 }

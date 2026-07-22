@@ -124,7 +124,19 @@ const InvDB = (() => {
         return doc.exists ? doc.data() : null;
     }
 
+    // Akun role "viewer" cuma boleh baca & export - blokir semua jalur
+    // tulis di SATU titik ini, supaya tidak perlu ubah tombol satu-satu
+    // di setiap modul. Ini pengaman sisi client (UX); pengaman
+    // sesungguhnya tetap di Firestore Security Rules lewat custom claim
+    // role, karena kode client selalu bisa dilewati orang yang cukup niat.
+    function _assertNotViewer() {
+        if (window.CURRENT_ROLE === "viewer") {
+            throw new Error("Akun ini hanya bisa melihat & export data (read-only), tidak bisa menyimpan/mengubah/menghapus.");
+        }
+    }
+
     async function put(storeName, value) {
+        _assertNotViewer();
         await _waitForOutletReady();
         const kp = keyPathFor(storeName);
         let docId = value[kp];
@@ -168,6 +180,7 @@ const InvDB = (() => {
     }
 
     async function bulkPut(storeName, values) {
+        _assertNotViewer();
         if (!values || values.length === 0) return;
         await _waitForOutletReady();
         const kp = keyPathFor(storeName);
@@ -194,10 +207,12 @@ const InvDB = (() => {
     }
 
     async function remove(storeName, key) {
+        _assertNotViewer();
         await col(storeName).doc(String(key)).delete();
     }
 
     async function clear(storeName) {
+        _assertNotViewer();
         const snap = await col(storeName).get();
         const docs = snap.docs;
         const CHUNK = 400;

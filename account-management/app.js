@@ -50,8 +50,11 @@ function showCfStatus(elId, msg, isError) {
 }
 
 function toggleNewAcctOutlet() {
-    const isAdmin = document.getElementById("newAcctRole").value === "admin";
-    document.getElementById("newAcctOutletWrap").style.display = isAdmin ? "none" : "";
+    const role = document.getElementById("newAcctRole").value;
+    // Admin selalu semua outlet (field disembunyikan). Viewer field
+    // outlet TETAP ditampilkan tapi opsional - boleh dikosongkan (=
+    // lihat semua outlet) atau dipilih salah satu outlet spesifik.
+    document.getElementById("newAcctOutletWrap").style.display = (role === "admin") ? "none" : "";
 }
 
 async function createOutletAccount() {
@@ -336,7 +339,7 @@ async function deleteOutlet(id) {
 function populateOutletSelect() {
     const options = OUTLETS.length === 0
         ? `<option value="">— Belum ada outlet —</option>`
-        : `<option value="">— (khusus role Admin) —</option>` + OUTLETS.map(o => `<option value="${o.id}">${o.name}</option>`).join("");
+        : `<option value="">— (khusus role Admin/Viewer) —</option>` + OUTLETS.map(o => `<option value="${o.id}">${o.name}</option>`).join("");
 
     ["acctOutlet", "newAcctOutlet", "migrateOutletSelect"].forEach(id => {
         const sel = document.getElementById(id);
@@ -382,10 +385,14 @@ function renderAccounts() {
     }
     body.innerHTML = ACCOUNTS.map(a => {
         const outletObj = OUTLETS.find(o => o.id === a.outletId);
-        const outletLabel = a.role === "admin" ? "— Semua Outlet —" : (outletObj ? outletObj.name : (a.outletId || "-"));
+        const outletLabel = (a.role === "admin" || (a.role === "viewer" && !a.outletId))
+            ? "— Semua Outlet —"
+            : (outletObj ? outletObj.name : (a.outletId || "-"));
         const roleChip = a.role === "admin"
             ? `<span class="role-chip role-admin">Admin</span>`
-            : `<span class="role-chip role-user">User</span>`;
+            : a.role === "viewer"
+                ? `<span class="role-chip role-viewer">Viewer</span>`
+                : `<span class="role-chip role-user">User</span>`;
         return `
             <tr>
                 <td>${a.email}</td>

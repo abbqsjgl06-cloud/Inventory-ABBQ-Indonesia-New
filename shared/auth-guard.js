@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(function (doc) {
                 if (doc.exists) {
                     var acct = doc.data();
-                    if (acct.role === "admin" || acct.role === "user") window.CURRENT_ROLE = acct.role;
+                    if (acct.role === "admin" || acct.role === "user" || acct.role === "viewer") window.CURRENT_ROLE = acct.role;
                     window.CURRENT_OUTLET_ID = acct.outletId || null;
                 }
             })
@@ -90,10 +90,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 // No accounts profile / offline / not permitted - keep legacy behavior above.
             })
             .then(function () {
-                if (window.CURRENT_ROLE === "admin") {
-                    // Admin can temporarily "view as" a specific outlet.
-                    // The choice is per-browser-tab (sessionStorage) and
-                    // overrides CURRENT_OUTLET_ID for this session only.
+                if (window.CURRENT_ROLE === "admin" || window.CURRENT_ROLE === "viewer") {
+                    // Admin & Viewer bisa "lihat sebagai" outlet tertentu.
+                    // Pilihan ini per-tab browser (sessionStorage) dan
+                    // menimpa CURRENT_OUTLET_ID untuk sesi ini saja.
                     var override = sessionStorage.getItem("adminOutletOverride");
                     if (override) window.CURRENT_OUTLET_ID = override;
                     return _injectOutletSwitcher(window.CURRENT_OUTLET_ID);
@@ -194,11 +194,14 @@ function _injectUserBadge(email, role, outletId) {
     var topOffset = hasBizDateBadge ? "62px" : "14px";
 
     var isAdmin = role === "admin";
-    // Non-admin accounts show their account name (the part before @) so
-    // it's clear which outlet/person is logged in - e.g.
-    // "sjgl@abbq-system.local" -> "SJGL". Admin badge stays generic.
-    var roleLabel = isAdmin ? "Admin" : String(email).split("@")[0].toUpperCase();
-    var dotColor = isAdmin ? "#F2B400" : "#2E7D4F";
+    var isViewer = role === "viewer";
+    // Non-admin/non-viewer accounts show their account name (the part
+    // before @) so it's clear which outlet/person is logged in - e.g.
+    // "sjgl@abbq-system.local" -> "SJGL". Admin & Viewer badges stay
+    // generic (Viewer bisa lihat banyak outlet lewat switcher, jadi
+    // nama akun-nya tidak relevan ditampilkan di sini).
+    var roleLabel = isAdmin ? "Admin" : (isViewer ? "Viewer" : String(email).split("@")[0].toUpperCase());
+    var dotColor = isAdmin ? "#F2B400" : (isViewer ? "#4B7BEC" : "#2E7D4F");
 
     var badge = document.createElement("div");
     badge.id = "authUserBadge";
@@ -237,7 +240,7 @@ function _injectUserBadge(email, role, outletId) {
     // dibuat MENCOLOK kalau belum di-set, karena kondisi ini persis yang
     // menyebabkan akun melihat data outlet lain (belum difilter sama
     // sekali karena tidak tahu harus filter ke outlet mana).
-    if (!isAdmin) {
+    if (!isAdmin && !isViewer) {
         var outletLine = document.createElement("span");
         outletLine.id = "authUserBadgeOutlet";
         outletLine.style.cssText = "font-size:9px;font-weight:700;white-space:nowrap;";
@@ -249,6 +252,14 @@ function _injectUserBadge(email, role, outletId) {
             outletLine.textContent = "⚠ Outlet belum di-set";
         }
         textWrap.appendChild(outletLine);
+    } else if (isViewer) {
+        // Viewer: bukan warning, cuma info outlet mana yang sedang
+        // dilihat (blank = memang sengaja "Semua Outlet", bukan error).
+        var viewerOutletLine = document.createElement("span");
+        viewerOutletLine.id = "authUserBadgeOutlet";
+        viewerOutletLine.style.cssText = "font-size:9px;font-weight:600;opacity:.85;white-space:nowrap;";
+        viewerOutletLine.textContent = outletId ? ("🏬 " + outletId) : "🏬 Semua Outlet";
+        textWrap.appendChild(viewerOutletLine);
     }
 
     badge.appendChild(dot);

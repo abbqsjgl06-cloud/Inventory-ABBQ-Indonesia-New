@@ -38,7 +38,16 @@ let USAGE_BY_CODE = new Map();      // code -> [{importId, qty}]  (fallback, pro
 let IMPORT_BY_ID = new Map();       // importId -> {periodStart, periodEnd, days}
 let DAILY_BY_CODE = new Map();      // code -> Map(date -> qty)   (utama, data harian aktual)
 let ALL_COVERED_DATES = new Set();  // semua tanggal yang PERNAH ter-cover oleh Import Usage manapun
-let SUPPLIER_BY_CODE = new Map();   // code -> supplier
+let SUPPLIER_BY_CODE = new Map();   // code -> supplier (nama supplier asli di Master Data)
+
+// Forecasting cuma tampilkan 2 pilihan gabungan (bukan tiap nama
+// supplier asli satu-satu di Master Data), supaya lebih simpel buat
+// yang order. Kalau nanti daftar supplier di Master Data berubah,
+// sesuaikan pemetaan ini.
+const SUPPLIER_GROUPS = {
+    "Ingre + Frozen": ["CK Ingredients", "CK Frozen"],
+    "Fresh": ["Frenindo", "Vita"]
+};
 
 let CURRENT_ITEMS = [];             // hasil forecast utk order yang sedang dibuat
 let DETAIL_ORDER = null;
@@ -254,7 +263,8 @@ function startOrder(){
     if(!deliveryDate || !coverUntilDate){ toast("Lengkapi Delivery Date & Cover Until","error"); return; }
     if(coverUntilDate < deliveryDate){ toast("Cover Until tidak boleh sebelum Delivery Date","error"); return; }
 
-    const supplierMaterials = MATERIALS.filter(m => SUPPLIER_BY_CODE.get(m.code) === supplier);
+    const suppliersInGroup = SUPPLIER_GROUPS[supplier] || [supplier];
+    const supplierMaterials = MATERIALS.filter(m => suppliersInGroup.includes(SUPPLIER_BY_CODE.get(m.code)));
 
     if(supplierMaterials.length === 0){
         toast(`Belum ada item yang dipetakan ke supplier "${supplier}". Atur dulu di Master Data > Supplier Barang.`, "error");

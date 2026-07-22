@@ -25,6 +25,7 @@
   }
   .role-admin{background:#FDECC8;color:#8A5A00;}
   .role-user{background:#E6F3EC;color:#1E5C36;}
+  .role-viewer{background:#E4EBFB;color:#2A4A9E;}
 </style>
 </head>
 <body>
@@ -109,11 +110,12 @@
         <select id="acctRole">
           <option value="user">User (outlet)</option>
           <option value="admin">Admin (super admin, lihat semua outlet)</option>
+          <option value="viewer">Viewer (lihat &amp; export saja, satu outlet atau semua)</option>
         </select>
       </div>
     </div>
     <div class="field">
-      <label>Outlet (kosongkan jika Admin/super admin)</label>
+      <label>Outlet (kosongkan = Admin/Viewer lihat semua outlet)</label>
       <select id="acctOutlet"><option value="">— Belum ada outlet —</option></select>
     </div>
     <button class="btn btn-secondary" onclick="addAccount()">+ Simpan Akun</button>
@@ -144,6 +146,7 @@
         <select id="newAcctRole" onchange="toggleNewAcctOutlet()">
           <option value="user">User (outlet)</option>
           <option value="admin">Admin (super admin)</option>
+          <option value="viewer">Viewer (lihat &amp; export saja)</option>
         </select>
       </div>
       <div class="field" id="newAcctOutletWrap">
