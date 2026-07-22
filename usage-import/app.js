@@ -23,29 +23,81 @@ document.addEventListener("DOMContentLoaded", async () => {
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 30);
-    document.getElementById("histFilterStart").value = start.toISOString().slice(0,10);
-    document.getElementById("histFilterEnd").value = end.toISOString().slice(0,10);
+    document.getElementById("histFilterStart").value = toLocalDateStr(start);
+    document.getElementById("histFilterEnd").value = toLocalDateStr(end);
 
     document.getElementById("fileInput").addEventListener("change", handleFile);
     renderHistoryPrompt();
 
     MATERIALS_FOR_LOOKUP = await InvDB.getAll("materials");
     await refreshCoveredDatesCache();
-    let dailyUsageDebounce = null;
-    document.getElementById("dailyUsageSearch").addEventListener("input", (e) => {
-        clearTimeout(dailyUsageDebounce);
-        dailyUsageDebounce = setTimeout(() => lookupDailyUsage(e.target.value), 350);
-    });
+    initDailyUsageAutocomplete();
 });
 
 let MATERIALS_FOR_LOOKUP = [];
 let ALL_DAILY_MATERIAL_DATES = new Set();
+let DAILY_USAGE_SELECTED = null;
 
 async function refreshCoveredDatesCache(){
     ALL_DAILY_MATERIAL_DATES = new Set((await InvDB.getAll("usageDailyMaterial")).map(r => r.date));
 }
 
-async function lookupDailyUsage(query){
+// Dropdown suggestion saat ketik di kolom cari bahan baku, supaya bisa
+// pilih item yang tepat (banyak nama bahan baku mirip/beririsan, jadi
+// pencarian "menebak" nama bisa salah ambil item).
+function initDailyUsageAutocomplete(){
+    const input = document.getElementById("dailyUsageSearch");
+    const list = document.getElementById("dailyUsageSuggestList");
+    if(!input || !list) return;
+
+    function render(){
+        const key = input.value.trim().toLowerCase();
+        const matches = (key
+            ? MATERIALS_FOR_LOOKUP.filter(m => String(m.code).toLowerCase().includes(key) || (m.name||"").toLowerCase().includes(key))
+            : MATERIALS_FOR_LOOKUP
+        ).slice(0, 30);
+
+        if(matches.length === 0){
+            list.innerHTML = `<div class="suggest-item" style="cursor:default;color:var(--muted);">Item tidak ditemukan</div>`;
+            list.style.display = "block";
+            return;
+        }
+
+        list.innerHTML = matches.map(m => `
+            <div class="suggest-item" data-code="${m.code}">
+                ${m.name}
+                <small>Kode ${m.code}${m.uom ? " · " + m.uom : ""}</small>
+            </div>
+        `).join("");
+        list.style.display = "block";
+
+        list.querySelectorAll(".suggest-item[data-code]").forEach(el => {
+            el.addEventListener("click", () => {
+                const m = MATERIALS_FOR_LOOKUP.find(x => String(x.code) === el.dataset.code);
+                if(!m) return;
+                DAILY_USAGE_SELECTED = m;
+                input.value = `${m.code} - ${m.name}`;
+                list.style.display = "none";
+                lookupDailyUsage(m.code, true);
+            });
+        });
+    }
+
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("input", () => {
+        DAILY_USAGE_SELECTED = null;
+        render();
+    });
+
+    document.addEventListener("click", (e) => {
+        if(!list.contains(e.target) && e.target !== input){
+            list.style.display = "none";
+        }
+    });
+}
+
+async function lookupDailyUsage(query, exactCode){
     const key = query.trim().toLowerCase();
     const resultBox = document.getElementById("dailyUsageResult");
     const emptyBox = document.getElementById("dailyUsageEmpty");
@@ -56,9 +108,11 @@ async function lookupDailyUsage(query){
         return;
     }
 
-    const material = MATERIALS_FOR_LOOKUP.find(m =>
-        String(m.code).toLowerCase() === key || (m.name||"").toLowerCase().includes(key)
-    );
+    const material = exactCode
+        ? MATERIALS_FOR_LOOKUP.find(m => String(m.code) === query)
+        : MATERIALS_FOR_LOOKUP.find(m =>
+            String(m.code).toLowerCase() === key || (m.name||"").toLowerCase().includes(key)
+        );
     if(!material){
         resultBox.style.display = "none";
         emptyBox.style.display = "block";
@@ -70,8 +124,8 @@ async function lookupDailyUsage(query){
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 29); // 30 hari termasuk hari ini
-    const startStr = start.toISOString().slice(0,10);
-    const endStr = end.toISOString().slice(0,10);
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
 
     const inRange = all.filter(r => r.date >= startStr && r.date <= endStr).sort((a,b)=> b.date.localeCompare(a.date));
 
@@ -161,6 +215,13 @@ function findKey(row, candidates){
         if(found) return found;
     }
     return null;
+}
+
+// Format Date object jadi YYYY-MM-DD pakai komponen tanggal LOKAL
+// (bukan .toISOString() yang konversi ke UTC dan bikin tanggal mundur
+// 1 hari untuk timezone Indonesia/UTC+7).
+function toLocalDateStr(d){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function parseFlexibleDate(value){
@@ -455,7 +516,7 @@ document.addEventListener("authReady", (e) => {
 function downloadTemplate(){
     const header = ["Date","Code","Desc","Major","Family","Qty","Discount","Net Sales","RVC","Order Type"];
     const sampleMenu = MENUS[0] || { menu_code: "1111001", menu_name: "Contoh Menu" };
-    const today = new Date().toISOString().slice(0,10);
+    const today = toLocalDateStr(new Date());
     const sample1 = [today, sampleMenu.menu_code, sampleMenu.menu_name, "", "", 5, 0, 0, "", "Dine In"];
     const sample2 = [today, sampleMenu.menu_code, sampleMenu.menu_name, "", "", 3, 0, 0, "", "Take Away"];
 

@@ -274,8 +274,15 @@ const InvDB = (() => {
        original global key exactly as before (backward compatible).
     ====================================== */
 
+    // Pakai komponen tanggal LOKAL, bukan .toISOString() (yang
+    // mengonversi ke UTC dan bikin tanggal mundur 1 hari untuk
+    // timezone Indonesia/UTC+7, terutama tengah malam s/d jam 7 pagi).
     function todayStr() {
-        return new Date().toISOString().slice(0, 10);
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
     }
 
     function _businessDateKey() {
@@ -328,7 +335,10 @@ const InvDB = (() => {
 
         const d = new Date(dateStr + "T00:00:00");
         d.setDate(d.getDate() + 1);
-        const nextStr = d.toISOString().slice(0, 10);
+        // Pakai komponen tanggal lokal (lihat catatan di todayStr) -
+        // sebelumnya pakai toISOString() yang untuk UTC+7 bikin
+        // "hari berikutnya" balik lagi ke dateStr semula (tidak maju).
+        const nextStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
         // Don't move the tracked business date backward - only advance it
         // if closing this date actually pushes it forward (handles admin

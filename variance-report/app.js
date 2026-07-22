@@ -27,21 +27,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     const end = todayStr();
     const start = new Date();
     start.setDate(1); // default: start of current month
-    document.getElementById("periodStart").value = start.toISOString().slice(0,10);
+    document.getElementById("periodStart").value = toLocalDateStr(start);
     document.getElementById("periodEnd").value = end;
 
     renderSessionLists();
     await onPeriodChange();
 });
 
+// Format Date object jadi YYYY-MM-DD pakai komponen tanggal LOKAL.
+// .toISOString() dulu dipakai di sini tapi itu konversi ke UTC, yang
+// untuk timezone Indonesia (UTC+7) selalu bikin tanggal mundur 1 hari.
+function toLocalDateStr(d){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function todayStr(){
-    return new Date().toISOString().slice(0,10);
+    return toLocalDateStr(new Date());
 }
 
 function previousDateStr(dateStr){
     const d = new Date(dateStr + "T00:00:00");
     d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0,10);
+    return toLocalDateStr(d);
 }
 
 /* ================= LAST STOCK TAKE LOOKUP ================= */

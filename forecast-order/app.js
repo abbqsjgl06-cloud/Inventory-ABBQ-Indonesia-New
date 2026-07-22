@@ -64,17 +64,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     const end = todayStr();
     const start = new Date();
     start.setDate(start.getDate() - 30);
-    document.getElementById("histFrom").value = start.toISOString().slice(0,10);
+    document.getElementById("histFrom").value = toLocalDateStr(start);
     document.getElementById("histTo").value = end;
 });
 
+// Format Date object jadi YYYY-MM-DD pakai komponen tanggal LOKAL.
+// .toISOString() dulu dipakai di sini tapi itu konversi ke UTC, yang
+// untuk timezone Indonesia (UTC+7) selalu bikin tanggal mundur 1 hari.
+function toLocalDateStr(d){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function todayStr(){
-    return new Date().toISOString().slice(0,10);
+    return toLocalDateStr(new Date());
 }
 function addDays(dateStr, n){
     const d = new Date(dateStr + "T00:00:00");
     d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0,10);
+    return toLocalDateStr(d);
 }
 function daysBetweenInclusive(a, b){
     const da = new Date(a + "T00:00:00");

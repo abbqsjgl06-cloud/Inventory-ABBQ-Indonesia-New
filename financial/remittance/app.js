@@ -12,12 +12,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const end = today();
     const start = new Date();
     start.setDate(start.getDate() - 30);
-    document.getElementById("histFrom").value = start.toISOString().slice(0,10);
+    document.getElementById("histFrom").value = toLocalDateStr(start);
     document.getElementById("histTo").value = end;
 });
 
+// Pakai komponen tanggal LOKAL, bukan .toISOString() (yang konversi
+// ke UTC dan bikin tanggal mundur 1 hari untuk timezone Indonesia).
+function toLocalDateStr(d){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function today(){
-    return new Date().toISOString().slice(0,10);
+    return toLocalDateStr(new Date());
 }
 
 function docIdFor(date){

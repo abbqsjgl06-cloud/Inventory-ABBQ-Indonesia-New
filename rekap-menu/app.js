@@ -93,8 +93,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 6); // default: 7 hari terakhir
-    document.getElementById("dateFrom").value = start.toISOString().slice(0,10);
-    document.getElementById("dateTo").value = end.toISOString().slice(0,10);
+    document.getElementById("dateFrom").value = toLocalDateStr(start);
+    document.getElementById("dateTo").value = toLocalDateStr(end);
 
     generateReport();
 });
@@ -108,12 +108,22 @@ function buildIndex(){
     });
 }
 
+// Format Date object jadi YYYY-MM-DD pakai komponen tanggal LOKAL,
+// bukan .toISOString() (yang konversi ke UTC dulu dan bikin tanggal
+// mundur 1 hari untuk timezone Indonesia/UTC+7).
+function toLocalDateStr(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
 function dateRangeArray(from, to){
     const dates = [];
     let cur = new Date(from + "T00:00:00");
     const end = new Date(to + "T00:00:00");
     while(cur <= end){
-        dates.push(cur.toISOString().slice(0,10));
+        dates.push(toLocalDateStr(cur));
         cur.setDate(cur.getDate() + 1);
     }
     return dates;

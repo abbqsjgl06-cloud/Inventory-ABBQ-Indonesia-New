@@ -1,5 +1,11 @@
 "use strict";
 
+// Pakai komponen tanggal LOKAL, bukan .toISOString() (yang konversi
+// ke UTC dan bikin tanggal mundur 1 hari untuk timezone Indonesia).
+function toLocalDateStr(d){
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 let TRACKED_BUSINESS_DATE = null; // the officially auto-advancing business date
 let TARGET_DATE = null;           // the date currently shown/being closed (admin can change this)
 let STOCK_SESSIONS = [];
@@ -31,8 +37,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const histEndDate = new Date();
         const histStartDate = new Date();
         histStartDate.setDate(histStartDate.getDate() - 30); // default: last 30 days
-        document.getElementById("historyFilterStart").value = histStartDate.toISOString().slice(0,10);
-        document.getElementById("historyFilterEnd").value = histEndDate.toISOString().slice(0,10);
+        document.getElementById("historyFilterStart").value = toLocalDateStr(histStartDate);
+        document.getElementById("historyFilterEnd").value = toLocalDateStr(histEndDate);
     } catch(err){
         console.error("Gagal memuat End of Day:", err);
         toast("Gagal memuat data. Coba refresh halaman.", "error");
