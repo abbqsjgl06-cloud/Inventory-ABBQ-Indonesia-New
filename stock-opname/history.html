@@ -49,10 +49,16 @@
 
     <br>
 
-    <div id="adminDeleteBar" style="display:none;margin-bottom:10px;">
-        <button onclick="deleteSelectedHistory()" style="background:#C23B2E;">
+    <div id="bulkActionBar" style="display:none;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+
+        <button onclick="exportSelectedHistory()" style="background:#1A5FB4;">
+            ⬇ Export Terpilih (<span id="selectedExportCount">0</span>)
+        </button>
+
+        <button id="deleteSelectedBtn" onclick="deleteSelectedHistory()" style="background:#C23B2E;display:none;">
             🗑 Hapus Terpilih (<span id="selectedDeleteCount">0</span>)
         </button>
+
     </div>
 
     <div id="historyList">
@@ -99,6 +105,7 @@
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
+<script src="libraries/xlsx.full.min.js"></script>
 <script src="history.js"></script>
 
 </body>

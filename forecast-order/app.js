@@ -309,24 +309,29 @@ function renderItemTable(){
     );
 
     if(rows.length === 0){
-        document.getElementById("itemTableBody").innerHTML = `<tr><td colspan="6" class="empty">Tidak ada item</td></tr>`;
+        document.getElementById("itemTableBody").innerHTML = `<tr><td colspan="4" class="empty">Tidak ada item</td></tr>`;
         return;
     }
 
     document.getElementById("itemTableBody").innerHTML = rows.map(r => `
         <tr>
-            <td>${r.code}</td>
-            <td>${r.name}</td>
-            <td>${r.uom}</td>
-            <td class="num">
-                <span class="stock-badge ${r.estimatedStock < 0 ? "neg" : ""}">${fmt(r.estimatedStock)}</span><br>
-                <small style="color:var(--muted);">${r.lastCountDate ? "SO: " + r.lastCountDate : "belum pernah dihitung"}</small>
+            <td class="item-title-cell">
+                <div class="item-name-line">${r.name}</div>
+                <small style="color:var(--muted);">${r.code} · ${r.uom}</small>
             </td>
-            <td class="num">
-                <span class="forecast-badge">${fmt(r.forecastQty)}</span><br>
-                <small style="color:var(--muted);">rata2 dari ${r.avgDaysUsed} hari</small>
+            <td class="num" data-label="Est. Stock">
+                <div class="num-value-wrap">
+                    <span class="stock-badge ${r.estimatedStock < 0 ? "neg" : ""}">${fmt(r.estimatedStock)}</span>
+                    <small style="color:var(--muted);">${r.lastCountDate ? "SO: " + r.lastCountDate : "belum pernah dihitung"}</small>
+                </div>
             </td>
-            <td class="num"><input type="number" class="qty-input" value="${r.orderQty}" data-code="${r.code}" oninput="updateOrderQty('${r.code}', this.value)"></td>
+            <td class="num" data-label="Forecast">
+                <div class="num-value-wrap">
+                    <span class="forecast-badge">${fmt(r.forecastQty)}</span>
+                    <small style="color:var(--muted);">rata2 dari ${r.avgDaysUsed} hari</small>
+                </div>
+            </td>
+            <td class="num" data-label="Qty Order"><input type="number" class="qty-input" value="${r.orderQty}" data-code="${r.code}" oninput="updateOrderQty('${r.code}', this.value)"></td>
         </tr>
     `).join("");
 }

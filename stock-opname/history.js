@@ -5,12 +5,18 @@
 
 let allData = [];
 let IS_ADMIN = false;
+let IS_VIEWER = false;
+let CAN_SELECT = false; // admin atau viewer boleh centang baris (buat export)
 let EOD_SESSION_IDS = new Set();
 
 document.addEventListener("authReady", (e) => {
     IS_ADMIN = e.detail.role === "admin";
-    const bar = document.getElementById("adminDeleteBar");
-    if(bar) bar.style.display = IS_ADMIN ? "block" : "none";
+    IS_VIEWER = e.detail.role === "viewer";
+    CAN_SELECT = IS_ADMIN || IS_VIEWER;
+    const bar = document.getElementById("bulkActionBar");
+    if(bar) bar.style.display = CAN_SELECT ? "flex" : "none";
+    const delBtn = document.getElementById("deleteSelectedBtn");
+    if(delBtn) delBtn.style.display = IS_ADMIN ? "" : "none";
 });
 
 // =====================================
@@ -141,7 +147,7 @@ function renderHistory(data) {
 
         rows += `
             <tr>
-                <td>${IS_ADMIN ? `<input type="checkbox" class="history-check" value="${item.id}" onchange="updateSelectedDeleteCount()">` : ""}</td>
+                <td>${CAN_SELECT ? `<input type="checkbox" class="history-check" value="${item.id}" onchange="updateSelectedDeleteCount()">` : ""}</td>
                 <td>${i + 1}</td>
                 <td>${kategori}</td>
                 <td>${type}</td>
@@ -182,8 +188,66 @@ function renderHistory(data) {
 
 function updateSelectedDeleteCount(){
     const count = document.querySelectorAll(".history-check:checked").length;
-    const el = document.getElementById("selectedDeleteCount");
-    if(el) el.textContent = count;
+    const delEl = document.getElementById("selectedDeleteCount");
+    if(delEl) delEl.textContent = count;
+    const expEl = document.getElementById("selectedExportCount");
+    if(expEl) expEl.textContent = count;
+}
+
+// Export beberapa riwayat Stock Opname terpilih sekaligus jadi 1 file
+// Excel - tiap sesi jadi 1 sheet sendiri (pakai library & format kolom
+// "Kode" yang sama seperti export 1 sesi di detail_history.js).
+function exportSelectedHistory(){
+    const ids = Array.from(document.querySelectorAll(".history-check:checked")).map(el => el.value);
+
+    if(ids.length === 0){
+        tampilNotif("Pilih minimal 1 data untuk di-export", "error");
+        return;
+    }
+
+    if(typeof XLSX === "undefined"){
+        tampilNotif("Library Excel belum dimuat", "error");
+        return;
+    }
+
+    const selected = allData.filter(item => ids.includes(String(item.id)));
+    const workbook = XLSX.utils.book_new();
+    const usedSheetNames = new Set();
+
+    selected.forEach(session => {
+        const excelData = (session.items || []).map(item => ({
+            "No": item.nomor,
+            "Kode": (/^[0-9]+$/.test(String(item.kode).trim()) ? Number(item.kode) : item.kode),
+            "Item": item.item,
+            "Konv": item.konv,
+            "UOM": item.uom,
+            "PCS/Gr": item.pcs_gr
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+        // Nama sheet Excel maksimal 31 karakter & tidak boleh duplikat/
+        // ada karakter terlarang ( \ / ? * [ ] ).
+        let sheetName = `${session.kategori || "SO"}-${session.type || ""}-${session.tanggal || ""}`
+            .replace(/[\\/?*\[\]:]/g, "-")
+            .slice(0, 31) || "Sheet";
+        let finalName = sheetName;
+        let dupCounter = 1;
+        while(usedSheetNames.has(finalName)){
+            const suffix = ` (${++dupCounter})`;
+            finalName = sheetName.slice(0, 31 - suffix.length) + suffix;
+        }
+        usedSheetNames.add(finalName);
+
+        XLSX.utils.book_append_sheet(workbook, worksheet, finalName);
+    });
+
+    const start = document.getElementById("startDate").value || "semua";
+    const end = document.getElementById("endDate").value || "tanggal";
+    const namaFile = `Riwayat-StockOpname_${ids.length}-sesi_${start}_sd_${end}.xlsx`;
+
+    XLSX.writeFile(workbook, namaFile);
+    tampilNotif(`✓ ${ids.length} riwayat berhasil di-export`, "success");
 }
 
 async function deleteSelectedHistory(){

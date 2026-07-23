@@ -33,6 +33,19 @@
   }
   #reportHead th:first-child{ background:var(--accent-tint); z-index:6; }
   #reportBody td.num{ text-align:right; }
+
+  /* Tabel dibiarkan menyusut mengikuti isi (bukan dipaksa min-width
+     520px seperti tabel modul lain) - kalau kolom tanggalnya cuma
+     sedikit (mis. filter 1 hari), tabel muat penuh di layar HP tanpa
+     perlu digeser. Kalau rentang tanggalnya panjang, tabel akan tetap
+     melebar wajar mengikuti isi kolom dan tetap bisa digeser. */
+  .table-wrap table{ min-width:0; }
+
+  /* Baris judul kategori TIDAK di-sticky (posisi normal ikut geser
+     bareng tabel) - sebelumnya sticky+colspan disini suka bentrok
+     sama kolom "Menu" yang juga sticky, bikin sebagian teks kategori
+     ketutupan/hilang saat tabel digeser ke kanan. */
+  #reportBody .cat-header-row td{ position:static !important; }
 </style>
 </head>
 <body>

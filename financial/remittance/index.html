@@ -69,12 +69,48 @@
 
   <div class="panel">
     <div class="panel-title">💳 Cashless</div>
-    <div class="field"><label>BRI</label><input type="number" id="cl_bri" value="0" oninput="recalc()"></div>
-    <div class="field"><label>Mandiri</label><input type="number" id="cl_mandiri" value="0" oninput="recalc()"></div>
-    <div class="field"><label>CIMB</label><input type="number" id="cl_cimb" value="0" oninput="recalc()"></div>
-    <div class="field"><label>Delivery</label><input type="number" id="cl_delivery" value="0" oninput="recalc()"></div>
-    <div class="field"><label>Grab</label><input type="number" id="cl_grab" value="0" oninput="recalc()"></div>
-    <div class="field"><label>Transfer SX</label><input type="number" id="cl_transfersx" value="0" oninput="recalc()"></div>
+    <div class="field">
+      <label>BRI</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_bri" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_bri')">🧮</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Mandiri</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_mandiri" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_mandiri')">🧮</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>CIMB</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_cimb" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_cimb')">🧮</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Delivery</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_delivery" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_delivery')">🧮</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Grab</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_grab" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_grab')">🧮</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Transfer SX</label>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="number" id="cl_transfersx" value="0" oninput="recalc()" style="flex:1;">
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:0 16px;" onclick="openMiniCalculator('cl_transfersx')">🧮</button>
+      </div>
+    </div>
 
     <div class="rf-total">
       <span>Total Bank In Sales</span>
@@ -118,6 +154,7 @@
 <script src="../../shared/chat-widget.js?v=2"></script>
 <script src="../../shared/inv-db.js?v=38"></script>
 <script src="../../shared/ui-dialog.js?v=35"></script>
+<script src="../../shared/mini-calculator.js?v=1"></script>
 <script src="app.js?v=1"></script>
 </body>
 </html>

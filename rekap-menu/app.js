@@ -174,32 +174,44 @@ function renderReport(){
     document.getElementById("reportHead").innerHTML =
         `<th>Menu</th>${dateHeaderHtml}<th class="num">Total</th>`;
 
+    // Kategori yang perlu baris subtotal di bawahnya (item lain di
+    // luar 2 kategori ini tidak perlu subtotal per kategori).
+    const CATEGORIES_WITH_SUBTOTAL = new Set(["Menu Paket", "Menu (in Paket)"]);
+
     // Body dikelompokkan per kategori dengan baris judul kategori
     let html = "";
     let currentCat = null;
-    let grandTotalByDate = {};
-    dates.forEach(d => grandTotalByDate[d] = 0);
+    let catByDate = {};
+    let catTotal = 0;
     let grandTotal = 0;
+
+    function flushCategorySubtotal(){
+        if(currentCat && CATEGORIES_WITH_SUBTOTAL.has(currentCat)){
+            html += `<tr style="font-weight:700;background:var(--paper);"><td>Total ${currentCat}</td>` +
+                dates.map(d => `<td class="num">${catByDate[d] || ""}</td>`).join("") +
+                `<td class="num">${catTotal}</td></tr>`;
+        }
+    }
 
     visibleRows.forEach(r => {
         if(r.category !== currentCat){
+            flushCategorySubtotal();
             currentCat = r.category;
-            html += `<tr><td colspan="${colCount}" style="font-weight:800;background:var(--accent-tint);position:sticky;left:0;">${currentCat}</td></tr>`;
+            catByDate = {}; dates.forEach(d => catByDate[d] = 0); catTotal = 0;
+            html += `<tr class="cat-header-row"><td colspan="${colCount}" style="font-weight:800;background:var(--accent-tint);">${currentCat}</td></tr>`;
         }
         html += `<tr><td>${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.code}</small></td>` +
             dates.map(d => `<td class="num">${r.byDate[d] || ""}</td>`).join("") +
             `<td class="num" style="font-weight:700;">${r.total}</td></tr>`;
 
-        dates.forEach(d => { grandTotalByDate[d] += r.byDate[d]; });
+        dates.forEach(d => { catByDate[d] += (r.byDate[d] || 0); });
+        catTotal += r.total;
         grandTotal += r.total;
     });
+    flushCategorySubtotal(); // subtotal kategori terakhir dalam daftar
 
     if(visibleRows.length === 0){
         html = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
-    } else {
-        html += `<tr style="font-weight:800;border-top:2px solid var(--ink);"><td>TOTAL</td>` +
-            dates.map(d => `<td class="num">${grandTotalByDate[d] || ""}</td>`).join("") +
-            `<td class="num">${grandTotal}</td></tr>`;
     }
 
     document.getElementById("reportBody").innerHTML = html;
