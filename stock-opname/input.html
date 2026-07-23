@@ -67,6 +67,7 @@
 
         <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="filterTable()" style="width:100%;padding:12px;margin:15px 0;font-size:16px;border:2px solid #f1c40f;border-radius:8px;">
 
+        <div class="table-scroll-wrap">
         <table class="table-stock">
 
             <thead>
@@ -94,8 +95,30 @@
             </tbody>
 
         </table>
+        </div>
 
         <br>
+
+        <div class="panel" style="border:2px solid #2E7D4F;border-radius:12px;padding:15px;margin-bottom:10px;">
+            <h3 style="margin-top:0;color:#2E7D4F;">🍳 Product Preparation</h3>
+            <p style="font-size:12px;color:#666;">
+                Input jumlah <b>porsi</b> produk yang sudah di-prepare (bukan bahan mentah). Sistem otomatis
+                menghitung kebutuhan bahan baku dari resep (BOM) dan menambahkannya ke laporan stock opname ini
+                begitu ditekan <b>SIMPAN</b> di bawah.
+            </p>
+            <div class="table-scroll-wrap">
+                <table class="table-stock">
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Qty Porsi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prepTableBody"></tbody>
+                </table>
+            </div>
+        </div>
 
         <button onclick="simpanData()">
 
@@ -163,7 +186,7 @@
     <script src="export.js"></script>
 
     <!-- INPUT -->
-    <script src="input.js"></script>
+    <script src="input.js?v=2"></script>
 
 </body>
 

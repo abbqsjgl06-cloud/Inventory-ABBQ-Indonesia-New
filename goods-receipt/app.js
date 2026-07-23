@@ -5,12 +5,125 @@ let SELECTED_ITEM = null;
 let ALL_RECEIPTS = [];
 let MATERIALS_LOADED = false;
 let IS_ADMIN = false;
+let CAN_EDIT = false; // admin atau user biasa boleh edit/tambah item; viewer tidak
 let EDITING_ID = null;
+let ADD_ITEM_OPEN_ID = null;   // dateId form "tambah item" yang sedang terbuka
+let ADD_ITEM_SELECTED = null;  // item terpilih di form tambah item yang sedang terbuka
+let OPEN_GROUP_IDS = new Set(); // id grup (source & tanggal) yang lagi dibuka - dipertahankan lintas render ulang
 
 function editReceipt(id){
-    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengedit","error"); return; }
+    if(!CAN_EDIT){ toast("Akun ini tidak bisa mengedit data","error"); return; }
     EDITING_ID = id;
     renderHistory();
+}
+
+function toggleAddItemForm(dateId, source, date){
+    ADD_ITEM_OPEN_ID = (ADD_ITEM_OPEN_ID === dateId) ? null : dateId;
+    ADD_ITEM_SELECTED = null;
+    // Pastikan grup source & tanggalnya kebuka (kalau belum) supaya
+    // form yang baru dirender langsung kelihatan.
+    if(ADD_ITEM_OPEN_ID){
+        OPEN_GROUP_IDS.add(dateId);
+        const srcId = dateId.split("-").slice(0, 2).join("-"); // "srcgrp-CK" dari "srcgrp-CK-2026-07-23"
+        OPEN_GROUP_IDS.add(srcId);
+    }
+    renderHistory();
+    if(ADD_ITEM_OPEN_ID){
+        initAddItemAutocomplete(dateId);
+        const input = document.getElementById(`addSearch_${dateId}`);
+        if(input) input.focus();
+    }
+}
+
+function initAddItemAutocomplete(dateId){
+    const input = document.getElementById(`addSearch_${dateId}`);
+    const list = document.getElementById(`addSuggest_${dateId}`);
+    if(!input || !list) return;
+
+    function render(){
+        const key = input.value.trim().toLowerCase();
+        const matches = (key
+            ? MATERIALS.filter(m => m.code.toLowerCase().includes(key) || (m.name||"").toLowerCase().includes(key))
+            : MATERIALS
+        ).slice(0, 30);
+
+        if(matches.length === 0){
+            list.innerHTML = `<div class="suggest-item" style="cursor:default;color:var(--muted);">Item tidak ditemukan</div>`;
+            list.style.display = "block";
+            return;
+        }
+
+        list.innerHTML = matches.map(m => `
+            <div class="suggest-item" data-code="${m.code}">
+                ${m.name}
+                <small>Kode ${m.code} · ${m.uom}</small>
+            </div>
+        `).join("");
+        list.style.display = "block";
+
+        list.querySelectorAll(".suggest-item[data-code]").forEach(el => {
+            el.addEventListener("click", () => {
+                const m = MATERIALS.find(x => x.code === el.dataset.code);
+                ADD_ITEM_SELECTED = m;
+                input.value = `${m.code} - ${m.name}`;
+                const uomEl = document.getElementById(`addUom_${dateId}`);
+                if(uomEl) uomEl.value = m.uom;
+                list.style.display = "none";
+            });
+        });
+    }
+
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("input", () => {
+        ADD_ITEM_SELECTED = null;
+        const uomEl = document.getElementById(`addUom_${dateId}`);
+        if(uomEl) uomEl.value = "";
+        render();
+    });
+
+    document.addEventListener("click", (e) => {
+        if(!list.contains(e.target) && e.target !== input){
+            list.style.display = "none";
+        }
+    });
+}
+
+async function submitAddItem(source, date, dateId){
+    if(!CAN_EDIT){ toast("Akun ini tidak bisa menambah data","error"); return; }
+
+    const qtyInput = document.getElementById(`addQty_${dateId}`);
+    const noteInput = document.getElementById(`addNote_${dateId}`);
+    const qty = Number(qtyInput ? qtyInput.value : 0);
+
+    if(!ADD_ITEM_SELECTED){ toast("Pilih item dari daftar suggestion","error"); return; }
+    if(!qty || qty <= 0){ toast("Qty harus lebih dari 0","error"); return; }
+
+    const r = {
+        id: "gr_" + Date.now() + "_" + Math.random().toString(36).slice(2,7),
+        date,
+        source,
+        material_code: ADD_ITEM_SELECTED.code,
+        material_name: ADD_ITEM_SELECTED.name,
+        qty,
+        uom: ADD_ITEM_SELECTED.uom,
+        note: noteInput ? noteInput.value.trim() : "",
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await InvDB.put("goodsReceipt", r);
+    } catch(err){
+        console.error("Gagal tambah item:", err);
+        toast("Gagal simpan. Cek koneksi internet lalu coba lagi.","error");
+        return;
+    }
+
+    ALL_RECEIPTS.push(r);
+    ADD_ITEM_OPEN_ID = null;
+    ADD_ITEM_SELECTED = null;
+    renderHistory();
+    toast(`✓ ${r.material_name} ditambahkan ke ${date}`,"success");
 }
 
 function cancelReceiptEdit(){
@@ -43,6 +156,7 @@ async function saveReceiptEdit(id){
 
 document.addEventListener("authReady", (e) => {
     IS_ADMIN = e.detail.role === "admin";
+    CAN_EDIT = e.detail.role !== "viewer";
     const box = document.getElementById("adminImportBox");
     if(box) box.style.display = IS_ADMIN ? "block" : "none";
     const delBtn = document.getElementById("deleteSelectedBtn");
@@ -325,10 +439,44 @@ function renderHistory(){
             return `
                 <div class="date-group">
                     <div class="date-header" onclick="toggleGroup('${dateId}')">
-                        <span class="toggle-arrow" id="arrow-${dateId}">▸</span>
+                        <span class="toggle-arrow" id="arrow-${dateId}">${OPEN_GROUP_IDS.has(dateId) ? "▾" : "▸"}</span>
                         ${date} <span class="chip">${rows.length} baris</span>
                     </div>
-                    <div id="${dateId}" style="display:none;">
+                    <div id="${dateId}" style="display:${OPEN_GROUP_IDS.has(dateId) ? "block" : "none"};">
+                        ${CAN_EDIT ? `
+                        <div style="padding:6px 0 2px;">
+                            <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();toggleAddItemForm('${dateId}','${src.key}','${date}')">
+                                ➕ Tambah Item ke ${date}
+                            </button>
+                        </div>
+                        ${ADD_ITEM_OPEN_ID === dateId ? `
+                        <div class="panel" style="margin:8px 0;padding:12px;background:var(--paper);">
+                            <div class="field" style="position:relative;">
+                                <label>Cari Item</label>
+                                <input type="text" id="addSearch_${dateId}" placeholder="Cari kode atau nama item..." autocomplete="off">
+                                <div class="suggest-list" id="addSuggest_${dateId}"></div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label>Qty</label>
+                                    <input type="number" id="addQty_${dateId}">
+                                </div>
+                                <div class="field">
+                                    <label>UOM</label>
+                                    <input type="text" id="addUom_${dateId}" readonly>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label>Keterangan/No PO (opsional)</label>
+                                <input type="text" id="addNote_${dateId}">
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn btn-primary" onclick="submitAddItem('${src.key}','${date}','${dateId}')">💾 Simpan Item</button>
+                                <button class="btn btn-ghost" onclick="toggleAddItemForm('${dateId}')">Batal</button>
+                            </div>
+                        </div>
+                        ` : ""}
+                        ` : ""}
                         <div class="table-wrap" style="margin:8px 0 4px;">
                             <table>
                                 <thead>
@@ -360,7 +508,7 @@ function renderHistory(){
                                             <td>${r.uom}</td>
                                             <td>${r.note || "-"}</td>
                                             <td style="white-space:nowrap;">
-                                                ${IS_ADMIN ? `<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="editReceipt('${r.id}')">Edit</button>` : ""}
+                                                ${CAN_EDIT ? `<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="editReceipt('${r.id}')">Edit</button>` : ""}
                                                 ${IS_ADMIN ? `<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="deleteReceipt('${r.id}')">Hapus</button>` : ""}
                                             </td>
                                         </tr>
@@ -376,10 +524,10 @@ function renderHistory(){
         return `
             <div class="panel src-panel">
                 <div class="src-header" onclick="toggleGroup('${srcId}')">
-                    <span class="toggle-arrow" id="arrow-${srcId}">▸</span>
+                    <span class="toggle-arrow" id="arrow-${srcId}">${OPEN_GROUP_IDS.has(srcId) ? "▾" : "▸"}</span>
                     ${src.label} <span class="chip">${srcRows.length} baris</span>
                 </div>
-                <div id="${srcId}" style="display:none;margin-top:6px;">
+                <div id="${srcId}" style="display:${OPEN_GROUP_IDS.has(srcId) ? "block" : "none"};margin-top:6px;">
                     ${dateGroupsHtml}
                 </div>
             </div>
@@ -394,6 +542,7 @@ function toggleGroup(id){
     const showing = el.style.display !== "none";
     el.style.display = showing ? "none" : "block";
     if(arrow) arrow.textContent = showing ? "▸" : "▾";
+    if(showing) OPEN_GROUP_IDS.delete(id); else OPEN_GROUP_IDS.add(id);
 }
 
 function toggleGroupCheck(masterCheckbox, dateId){

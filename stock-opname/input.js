@@ -6,6 +6,83 @@ let stockMeta = {};
 let databaseData = [];
 
 // =====================================
+// PRODUCT PREPARATION (Table 2)
+// Kode di sini adalah KODE MENU (bukan kode bahan baku) - resepnya
+// (BOM) sudah didaftarkan di Master Data > BOM/Resep Menu. Crew input
+// porsi yang sudah di-prepare, lalu sistem menerjemahkannya ke bahan
+// baku lewat BOM itu waktu SIMPAN ditekan.
+// =====================================
+
+const PRODUCT_PREP_ITEMS = [
+    { area: "Kitchen", kode: "4221003", nama: "Sayur Asem" },
+    { area: "Kitchen", kode: "4231006", nama: "Risoles" },
+    { area: "Kitchen", kode: "4231008", nama: "Spring Roll" },
+    { area: "Kitchen", kode: "4231005", nama: "Singkong Goreng" },
+    { area: "Frontliner", kode: "3121002", nama: "Caramel Pudding" },
+    { area: "Frontliner", kode: "3121003", nama: "Chocolate Pudding" },
+    { area: "Frontliner", kode: "3121001", nama: "Pandan Pudding" },
+    { area: "Frontliner", kode: "4231002", nama: "Kerupuk Ikan" },
+    { area: "Frontliner", kode: "4231001", nama: "Kerupuk Udang" },
+    { area: "Frontliner", kode: "4231003", nama: "Emping" }
+];
+
+let BOM_ROWS = [];
+let MATERIALS_LIST = [];
+
+async function loadPrepData(){
+    try {
+        BOM_ROWS = await InvDB.getAll("bom");
+        MATERIALS_LIST = await InvDB.getAll("materials");
+    } catch(err){
+        console.error("Gagal memuat data BOM/Materials:", err);
+        BOM_ROWS = [];
+        MATERIALS_LIST = [];
+    }
+    renderPrepTable();
+}
+
+function renderPrepTable(){
+    const body = document.getElementById("prepTableBody");
+    if(!body) return;
+
+    let html = "";
+    let currentArea = null;
+    PRODUCT_PREP_ITEMS.forEach((it, idx) => {
+        if(it.area !== currentArea){
+            currentArea = it.area;
+            html += `<tr style="background:#FFF3C4;"><td colspan="3" style="font-weight:800;text-align:left;">${currentArea}</td></tr>`;
+        }
+        html += `
+        <tr>
+            <td>${it.kode}</td>
+            <td style="text-align:left;">${it.nama}</td>
+            <td><input type="number" class="qty-input" id="prep_${idx}" min="0" value="0"></td>
+        </tr>`;
+    });
+    body.innerHTML = html;
+}
+
+// Hitung kebutuhan bahan baku dari semua input Table 2, gabungkan per
+// kode bahan baku (1 bahan baku bisa dipakai di lebih dari 1 resep).
+function calcPrepRawUsage(){
+    const rawTotals = new Map(); // material_code -> qty
+
+    PRODUCT_PREP_ITEMS.forEach((it, idx) => {
+        const input = document.getElementById("prep_" + idx);
+        const portions = Number(input ? input.value : 0) || 0;
+        if(portions <= 0) return;
+
+        const bomLines = BOM_ROWS.filter(b => String(b.menu_code).trim() === String(it.kode).trim());
+        bomLines.forEach(line => {
+            const qty = portions * (Number(line.qty_per_portion) || 0);
+            rawTotals.set(line.material_code, (rawTotals.get(line.material_code) || 0) + qty);
+        });
+    });
+
+    return rawTotals;
+}
+
+// =====================================
 // ADMIN: UPLOAD QTY DARI EXCEL
 // =====================================
 
@@ -120,6 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stockMeta.tanggal;
 
     loadDatabase();
+    loadPrepData();
 
 });
 
@@ -417,6 +495,40 @@ async function simpanData(){
 
     });
 
+    // ===== Product Preparation -> tambahkan ke items di atas =====
+    // Porsi yang di-input di Table 2 diterjemahkan lewat BOM jadi
+    // kebutuhan bahan baku, lalu DITAMBAHKAN (bukan menimpa) ke baris
+    // yang kodenya sudah ada di Table 1. Kalau kodenya tidak ada di
+    // daftar kategori ini (mis. resepnya "tercampur" pakai bahan dari
+    // area lain), baris baru otomatis ditambahkan di laporan yang sama
+    // supaya tetap tercatat & tidak hilang - bukan diam-diam dibuang.
+    const prepRawTotals = calcPrepRawUsage();
+    const prepSummaryLines = [];
+
+    if(prepRawTotals.size > 0){
+        let nextNomor = items.length > 0 ? Math.max(...items.map(i=>Number(i.nomor)||0)) + 1 : 1;
+
+        prepRawTotals.forEach((qty, materialCode) => {
+            const existingIdx = items.findIndex(i => String(i.kode).trim() === String(materialCode).trim());
+
+            if(existingIdx !== -1){
+                items[existingIdx].pcs_gr = (Number(items[existingIdx].pcs_gr) || 0) + qty;
+                prepSummaryLines.push(`+${fmtPrep(qty)} ke "${items[existingIdx].item}" (${materialCode})`);
+            } else {
+                const material = MATERIALS_LIST.find(m => String(m.code).trim() === String(materialCode).trim());
+                items.push({
+                    nomor: nextNomor++,
+                    kode: materialCode,
+                    item: (material ? material.name : materialCode) + " (dari Product Preparation)",
+                    konv: 1,
+                    uom: material ? material.uom : "",
+                    pcs_gr: qty
+                });
+                prepSummaryLines.push(`+${fmtPrep(qty)} baris BARU "${material ? material.name : materialCode}" (${materialCode}) - tidak ada di daftar ${stockMeta.kategori}, ditambahkan otomatis`);
+            }
+        });
+    }
+
     const data = {
 
         id:String(Date.now()),
@@ -444,10 +556,17 @@ async function simpanData(){
             JSON.stringify(data)
         );
 
-        tampilNotif(
-            "✓ Data berhasil disimpan",
-            "success"
-        );
+        if(prepSummaryLines.length > 0){
+            tampilNotif(
+                `✓ Data tersimpan. Product Preparation menambahkan:<br>${prepSummaryLines.join("<br>")}`,
+                "success"
+            );
+        } else {
+            tampilNotif(
+                "✓ Data berhasil disimpan",
+                "success"
+            );
+        }
 
     } catch(err) {
 
@@ -460,6 +579,10 @@ async function simpanData(){
 
     }
 
+}
+
+function fmtPrep(n){
+    return Number(n).toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
 // =====================================
@@ -508,12 +631,16 @@ function tampilNotif(
     notif.style.display =
         "block";
 
+    // Pesan yang lebih panjang (mis. ringkasan Product Preparation)
+    // dikasih waktu lebih lama supaya sempat dibaca, bukan cuma 2 detik.
+    const duration = pesan.length > 60 ? 7000 : 2000;
+
     setTimeout(()=>{
 
         notif.style.display =
             "none";
 
-    },2000);
+    },duration);
 
 }
 

@@ -71,7 +71,7 @@ const CURATED_MENU_LIST = [
     { category: 'Dessert', code: "3111002", name: 'ES CENDOL' },
     { category: 'Dessert', code: "3121003", name: 'CHCOCOLATE PUDDING' },
     { category: 'Dessert', code: "3121002", name: 'CARAMEL PUDDING' },
-    { category: 'Dessert', code: "3121003", name: 'PANDAN PUDDING' },
+    { category: 'Dessert', code: "3121001", name: 'PANDAN PUDDING' },
     { category: 'Makanan Ringan', code: "4231004", name: 'PISANG GORENG' },
     { category: 'Makanan Ringan', code: "4231005", name: 'SINGKONG GORENG' },
     { category: 'Makanan Ringan', code: "4231006", name: 'SMOKED BEEF RISSOLES' },
