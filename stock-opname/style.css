@@ -119,7 +119,7 @@ button:hover{
 .table-stock{
 
     width:100%;
-    min-width:560px;
+    table-layout:fixed;
 
     border-collapse:collapse;
 
@@ -133,13 +133,14 @@ button:hover{
 
     border:1px solid #ddd;
 
-    padding:6px 8px;
+    padding:6px 4px;
 
     text-align:center;
 
-    font-size:12px;
+    font-size:11px;
 
-    white-space:nowrap;
+    white-space:normal;
+    overflow-wrap:break-word;
 
     position:sticky;
     top:0;
@@ -150,40 +151,32 @@ button:hover{
 
     border:1px solid #ddd;
 
-    padding:6px 8px;
+    padding:6px 4px;
 
     text-align:center;
 
     font-size:12px;
 
+    white-space:normal;
+    overflow-wrap:break-word;
+
 }
 
-/* Kolom "Item" (nama) dibiarkan lebih lebar & boleh wrap, sisanya
-   dibuat sempit & tidak wrap - supaya tabel lebih ringkas dan tidak
-   melebar keluar layar HP. Kolom No + Kode + Item di-"stick" ke kiri
-   supaya tetap kelihatan walau tabelnya digeser ke kanan untuk lihat
-   Konv/UOM/Qty. */
-.table-stock th:nth-child(3), .table-stock td:nth-child(3){
-    text-align:left;
-    white-space:normal;
-    min-width:150px;
-}
-.table-stock th:nth-child(1), .table-stock td:nth-child(1),
-.table-stock th:nth-child(2), .table-stock td:nth-child(2),
-.table-stock th:nth-child(3), .table-stock td:nth-child(3){
-    position:sticky;
-    background:#fff;
-}
-.table-stock th:nth-child(1), .table-stock td:nth-child(1){ left:0; min-width:28px; }
-.table-stock th:nth-child(2), .table-stock td:nth-child(2){ left:28px; min-width:64px; }
-.table-stock th:nth-child(3), .table-stock td:nth-child(3){ left:92px; }
-.table-stock th:nth-child(1), .table-stock th:nth-child(2), .table-stock th:nth-child(3){
-    background:#FFD400;
-    z-index:3;
-}
-.table-stock td:nth-child(1), .table-stock td:nth-child(2), .table-stock td:nth-child(3){
-    z-index:2;
-}
+/* Tabel dibuat table-layout:fixed dengan lebar tiap kolom ditentukan
+   di sini (bukan sticky/geser lagi) - No/Kode/Konv/UOM dipersempit,
+   Item boleh 2 baris, supaya SEMUA kolom termasuk input Qty di paling
+   kanan selalu kelihatan penuh di layar HP tanpa perlu geser sama
+   sekali. Sebelumnya kolom No/Kode/Item dibuat "sticky" nempel di
+   kiri, tapi itu yang bikin kolom Qty di kanan malah ketutupan/hilang
+   saat digeser - jadi pendekatan sticky itu dilepas total.
+   Total lebar berikut sengaja pas dengan layar HP standar (~360-400px)
+   ditambah padding kolom. */
+.table-stock th:nth-child(1), .table-stock td:nth-child(1){ width:22px; padding-left:2px; padding-right:2px; }
+.table-stock th:nth-child(2), .table-stock td:nth-child(2){ width:54px; padding-left:2px; padding-right:2px; }
+.table-stock th:nth-child(3), .table-stock td:nth-child(3){ text-align:left; width:auto; }
+.table-stock th:nth-child(4), .table-stock td:nth-child(4){ width:28px; padding-left:2px; padding-right:2px; }
+.table-stock th:nth-child(5), .table-stock td:nth-child(5){ width:28px; padding-left:2px; padding-right:2px; }
+.table-stock th:nth-child(6), .table-stock td:nth-child(6){ width:62px; padding-left:2px; padding-right:2px; }
 
 /* =========================
    INPUT PCS
@@ -191,7 +184,7 @@ button:hover{
 
 .qty-input{
 
-    width:70px;
+    width:52px;
 
     text-align:center;
 
@@ -389,7 +382,8 @@ button:hover{
 
 .qty-input{
 
-    width:60px;
+    width:46px;
+    padding:3px;
 
 }
 

@@ -568,7 +568,9 @@ function exportSelected(){
 
     const header = ["Tanggal","Sumber","Kode","Item","Qty","UOM","Keterangan/No PO"];
     const data = rows.map(r => [
-        r.date, r.source === "CK" ? "In CK" : "In Supplier", r.material_code, r.material_name, r.qty, r.uom, r.note || ""
+        r.date, r.source === "CK" ? "In CK" : "In Supplier",
+        (/^[0-9]+$/.test(String(r.material_code).trim()) ? Number(r.material_code) : r.material_code),
+        r.material_name, r.qty, r.uom, r.note || ""
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...data]);

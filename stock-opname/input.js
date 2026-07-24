@@ -5,6 +5,15 @@
 let stockMeta = {};
 let databaseData = [];
 
+// Menyimpan id dokumen stockOpname begitu berhasil tersimpan pertama
+// kali di lembar kerja ini. Kalau user menekan Simpan lagi (baik tanpa
+// ubah apa-apa, atau setelah mengubah qty-nya) SELAGI MASIH DI HALAMAN
+// YANG SAMA, id ini dipakai ulang supaya InvDB.put() meng-UPDATE
+// dokumen yang sama di Firestore, bukan bikin baris baru di Riwayat.
+// Reset ke null hanya terjadi kalau halaman ini dimuat ulang / dibuka
+// baru (artinya sengaja mulai sesi hitung yang baru).
+let CURRENT_SAVE_ID = null;
+
 // =====================================
 // PRODUCT PREPARATION (Table 2)
 // Kode di sini adalah KODE MENU (bukan kode bahan baku) - resepnya
@@ -531,7 +540,7 @@ async function simpanData(){
 
     const data = {
 
-        id:String(Date.now()),
+        id: CURRENT_SAVE_ID || String(Date.now()),
 
         pic:stockMeta.pic,
 
@@ -549,7 +558,11 @@ async function simpanData(){
 
     try {
 
+        const isUpdate = CURRENT_SAVE_ID === data.id && CURRENT_SAVE_ID !== null;
+
         await InvDB.put("stockOpname", data);
+
+        CURRENT_SAVE_ID = data.id;
 
         localStorage.setItem(
             "currentStock",
@@ -558,12 +571,12 @@ async function simpanData(){
 
         if(prepSummaryLines.length > 0){
             tampilNotif(
-                `✓ Data tersimpan. Product Preparation menambahkan:<br>${prepSummaryLines.join("<br>")}`,
+                `✓ Data ${isUpdate ? "diperbarui" : "tersimpan"}. Product Preparation menambahkan:<br>${prepSummaryLines.join("<br>")}`,
                 "success"
             );
         } else {
             tampilNotif(
-                "✓ Data berhasil disimpan",
+                isUpdate ? "✓ Data berhasil diperbarui (lembar kerja yang sama)" : "✓ Data berhasil disimpan",
                 "success"
             );
         }

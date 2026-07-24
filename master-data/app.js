@@ -3,6 +3,9 @@
 let ALL_MATERIALS = [];
 let ALL_MENUS = [];
 let ALL_BOM = [];
+let EDITING_BOM_ID = null;      // id baris BOM yang sedang diedit (qty/uom)
+let ADD_BOM_OPEN_MENU = null;   // menu_code yang form "tambah bahan"-nya lagi kebuka
+let ADD_BOM_SELECTED = null;    // material terpilih di form tambah bahan yang sedang terbuka
 let ALL_SUPPLIER_ITEMS = [];
 let DETAIL_LOADED = false;
 
@@ -209,21 +212,231 @@ function renderMenus(){
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Kode Bahan</th><th>Nama Bahan</th><th class="num">Qty/Porsi</th><th>UOM</th></tr></thead>
+                    <thead><tr><th>Kode Bahan</th><th>Nama Bahan</th><th class="num">Qty/Porsi</th><th>UOM</th>${IS_ADMIN ? "<th></th>" : ""}</tr></thead>
                     <tbody>
-                        ${rows.map(r=>`
+                        ${rows.map(r => r.id === EDITING_BOM_ID ? `
+                            <tr>
+                                <td>${r.material_code}</td>
+                                <td>${r.material_name}</td>
+                                <td class="num"><input type="number" id="editBomQty_${r.id}" value="${r.qty_per_portion}" style="width:70px;padding:4px 6px;"></td>
+                                <td><input type="text" id="editBomUom_${r.id}" value="${r.uom}" style="width:60px;padding:4px 6px;"></td>
+                                <td style="white-space:nowrap;">
+                                    <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;width:auto;" onclick="saveBomEdit('${r.id}')">Simpan</button>
+                                    <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="cancelBomEdit()">Batal</button>
+                                </td>
+                            </tr>
+                        ` : `
                             <tr>
                                 <td>${r.material_code}</td>
                                 <td>${r.material_name}</td>
                                 <td class="num">${r.qty_per_portion}</td>
                                 <td>${r.uom}</td>
+                                ${IS_ADMIN ? `
+                                <td style="white-space:nowrap;">
+                                    <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;" onclick="editBomRow('${r.id}')">Edit</button>
+                                    <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;width:auto;color:#C23B2E;" onclick="deleteBomRow('${r.id}')">Hapus</button>
+                                </td>
+                                ` : ""}
                             </tr>
                         `).join("")}
                     </tbody>
                 </table>
             </div>
+            ${IS_ADMIN ? `
+            <div style="margin-top:10px;">
+                <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px;width:auto;" onclick="toggleAddBomForm('${m.menu_code}')">
+                    ➕ Tambah Bahan
+                </button>
+            </div>
+            ${ADD_BOM_OPEN_MENU === m.menu_code ? `
+            <div class="panel" style="margin-top:10px;padding:12px;background:var(--paper);">
+                <div class="field" style="position:relative;">
+                    <label>Cari Bahan Baku</label>
+                    <input type="text" id="addBomSearch_${m.menu_code}" placeholder="Cari kode atau nama bahan..." autocomplete="off">
+                    <div class="suggest-list" id="addBomSuggest_${m.menu_code}"></div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Qty/Porsi</label>
+                        <input type="number" id="addBomQty_${m.menu_code}">
+                    </div>
+                    <div class="field">
+                        <label>UOM</label>
+                        <input type="text" id="addBomUom_${m.menu_code}">
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary" onclick="submitAddBomRow('${m.menu_code}')">💾 Simpan Bahan</button>
+                    <button class="btn btn-ghost" onclick="toggleAddBomForm('${m.menu_code}')">Batal</button>
+                </div>
+            </div>
+            ` : ""}
+            ` : ""}
         </div>`;
     }).join("");
+}
+
+function editBomRow(id){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengedit","error"); return; }
+    EDITING_BOM_ID = id;
+    renderMenus();
+}
+
+function cancelBomEdit(){
+    EDITING_BOM_ID = null;
+    renderMenus();
+}
+
+async function saveBomEdit(id){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengedit","error"); return; }
+    const row = ALL_BOM.find(b => b.id === id);
+    if(!row) return;
+
+    const qtyInput = document.getElementById(`editBomQty_${id}`);
+    const uomInput = document.getElementById(`editBomUom_${id}`);
+    const qty = Number(qtyInput ? qtyInput.value : NaN);
+    const uom = uomInput ? uomInput.value.trim() : "";
+
+    if(!isFinite(qty) || qty < 0){ toast("Qty tidak valid","error"); return; }
+    if(!uom){ toast("UOM tidak boleh kosong","error"); return; }
+
+    const updated = { ...row, qty_per_portion: qty, uom };
+    try {
+        await InvDB.put("bom", updated);
+    } catch(err){
+        console.error("Gagal simpan BOM:", err);
+        toast("Gagal simpan. Cek koneksi internet.","error");
+        return;
+    }
+    Object.assign(row, updated);
+    EDITING_BOM_ID = null;
+    renderMenus();
+    toast("✓ Bahan tersimpan","success");
+}
+
+async function deleteBomRow(id){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh menghapus","error"); return; }
+    const row = ALL_BOM.find(b => b.id === id);
+    if(!row) return;
+    if(!await uiConfirm(`Hapus bahan "${row.material_name}" dari resep ini? Berguna untuk membersihkan baris duplikat/salah.`)) return;
+
+    try {
+        await InvDB.remove("bom", id);
+    } catch(err){
+        console.error("Gagal hapus BOM:", err);
+        toast("Gagal hapus. Cek koneksi internet.","error");
+        return;
+    }
+    ALL_BOM = ALL_BOM.filter(b => b.id !== id);
+    renderMenus();
+    toast("✓ Bahan dihapus","success");
+}
+
+function toggleAddBomForm(menuCode){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh menambah bahan","error"); return; }
+    ADD_BOM_OPEN_MENU = (ADD_BOM_OPEN_MENU === menuCode) ? null : menuCode;
+    ADD_BOM_SELECTED = null;
+    renderMenus();
+    if(ADD_BOM_OPEN_MENU){
+        initAddBomAutocomplete(menuCode);
+        const input = document.getElementById(`addBomSearch_${menuCode}`);
+        if(input) input.focus();
+    }
+}
+
+function initAddBomAutocomplete(menuCode){
+    const input = document.getElementById(`addBomSearch_${menuCode}`);
+    const list = document.getElementById(`addBomSuggest_${menuCode}`);
+    if(!input || !list) return;
+
+    function render(){
+        const key = input.value.trim().toLowerCase();
+        const matches = (key
+            ? ALL_MATERIALS.filter(m => m.code.toLowerCase().includes(key) || (m.name||"").toLowerCase().includes(key))
+            : ALL_MATERIALS
+        ).slice(0, 30);
+
+        if(matches.length === 0){
+            list.innerHTML = `<div class="suggest-item" style="cursor:default;color:var(--muted);">Bahan tidak ditemukan</div>`;
+            list.style.display = "block";
+            return;
+        }
+
+        list.innerHTML = matches.map(m => `
+            <div class="suggest-item" data-code="${m.code}">
+                ${m.name}
+                <small>Kode ${m.code} · ${m.uom}</small>
+            </div>
+        `).join("");
+        list.style.display = "block";
+
+        list.querySelectorAll(".suggest-item[data-code]").forEach(el => {
+            el.addEventListener("click", () => {
+                const m = ALL_MATERIALS.find(x => x.code === el.dataset.code);
+                ADD_BOM_SELECTED = m;
+                input.value = `${m.code} - ${m.name}`;
+                const uomEl = document.getElementById(`addBomUom_${menuCode}`);
+                if(uomEl) uomEl.value = m.uom;
+                list.style.display = "none";
+            });
+        });
+    }
+
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("input", () => {
+        ADD_BOM_SELECTED = null;
+        render();
+    });
+
+    document.addEventListener("click", (e) => {
+        if(!list.contains(e.target) && e.target !== input){
+            list.style.display = "none";
+        }
+    });
+}
+
+async function submitAddBomRow(menuCode){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh menambah bahan","error"); return; }
+
+    const qtyInput = document.getElementById(`addBomQty_${menuCode}`);
+    const uomInput = document.getElementById(`addBomUom_${menuCode}`);
+    const qty = Number(qtyInput ? qtyInput.value : NaN);
+    const uom = uomInput ? uomInput.value.trim() : "";
+
+    if(!ADD_BOM_SELECTED){ toast("Pilih bahan dari daftar suggestion","error"); return; }
+    if(!isFinite(qty) || qty < 0){ toast("Qty tidak valid","error"); return; }
+    if(!uom){ toast("UOM tidak boleh kosong","error"); return; }
+
+    const menu = ALL_MENUS.find(m => m.menu_code === menuCode);
+    const already = ALL_BOM.find(b => b.menu_code === menuCode && b.material_code === ADD_BOM_SELECTED.code);
+    if(already && !await uiConfirm(`"${ADD_BOM_SELECTED.name}" sudah ada di resep ini. Tambah baris duplikat lagi?`)) return;
+
+    const row = {
+        menu_code: menuCode,
+        menu_name: menu ? menu.menu_name : "",
+        category: menu ? (menu.category || null) : null,
+        material_code: ADD_BOM_SELECTED.code,
+        material_name: ADD_BOM_SELECTED.name,
+        qty_per_portion: qty,
+        uom
+    };
+
+    try {
+        await InvDB.put("bom", row);
+    } catch(err){
+        console.error("Gagal tambah bahan BOM:", err);
+        toast("Gagal simpan. Cek koneksi internet.","error");
+        return;
+    }
+    // InvDB.put men-generate id baru untuk baris ini di server, tapi
+    // tidak menuliskannya balik ke variabel `row` lokal - jadi refresh
+    // dari server supaya ALL_BOM punya id yang benar (perlu untuk
+    // tombol Edit/Hapus baris ini berfungsi tanpa reload halaman).
+    ADD_BOM_OPEN_MENU = null;
+    ADD_BOM_SELECTED = null;
+    await refreshAll();
+    toast(`✓ ${row.material_name} ditambahkan ke resep`,"success");
 }
 
 /* ================= NOTIF ================= */
