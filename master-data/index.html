@@ -92,6 +92,7 @@
           <div class="summary-value" id="bomPrevUpdatedItems">0</div>
         </div>
       </div>
+      <div id="bomPrevDupWarning" style="display:none;background:#FFF3C4;color:#7A5A00;font-size:12px;padding:10px 12px;border-radius:8px;margin-bottom:12px;"></div>
       <button class="btn btn-primary" onclick="confirmBomImport()">✓ Terapkan Update Ini</button>
     </div>
   </div>
@@ -164,6 +165,18 @@
     </div>
 
     <div class="tab-panel" id="tab-bom">
+      <div class="panel admin-only" id="panelCleanupBom" style="border:2px solid #C23B2E;">
+        <div class="panel-title">🧹 Bersihkan Semua Duplikat BOM</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Cek SELURUH resep (semua menu sekaligus), cari bahan yang tercatat lebih dari 1x di
+          resep yang sama, lalu hapus otomatis sisa duplikatnya (baris pertama yang ditemukan
+          dipertahankan). Aman dijalankan berkali-kali - kalau tidak ada duplikat, tidak ada yang
+          berubah.
+        </p>
+        <button class="btn btn-secondary" style="border-color:#C23B2E;color:#C23B2E;" onclick="cleanupAllBomDuplicates()">🧹 Cek &amp; Bersihkan Sekarang</button>
+        <div id="cleanupBomResult" style="font-size:13px;margin-top:10px;white-space:pre-line;"></div>
+      </div>
+
       <div class="panel admin-only" id="panelAddMenu">
         <div class="panel-title">➕ Tambah Menu Baru</div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
@@ -275,6 +288,6 @@
 <script src="../shared/seed-data.js?v=25"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
-<script src="app.js?v=28"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>

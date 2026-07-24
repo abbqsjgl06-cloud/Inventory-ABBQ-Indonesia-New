@@ -216,6 +216,62 @@ async function addNewMenu(){
     }
 }
 
+async function cleanupAllBomDuplicates(){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh membersihkan ini","error"); return; }
+
+    const resultEl = document.getElementById("cleanupBomResult");
+    resultEl.textContent = "Memeriksa seluruh resep...";
+
+    // Kelompokkan per (kode menu + kode bahan). Baris PERTAMA yang
+    // ditemukan per kelompok dipertahankan, sisanya (kalau ada lebih
+    // dari 1) ditandai utk dihapus.
+    const seen = new Map(); // key -> kept row
+    const toDelete = [];
+
+    ALL_BOM.forEach(row => {
+        const key = row.menu_code + "||" + row.material_code;
+        if(seen.has(key)){
+            toDelete.push(row);
+        } else {
+            seen.set(key, row);
+        }
+    });
+
+    if(toDelete.length === 0){
+        resultEl.textContent = "✓ Tidak ada duplikat ditemukan - semua resep sudah bersih.";
+        toast("✓ Tidak ada duplikat ditemukan","success");
+        return;
+    }
+
+    if(!await uiConfirm(`Ditemukan ${toDelete.length} baris duplikat di seluruh resep. Hapus semua duplikat itu sekarang? (baris pertama per bahan akan dipertahankan, aksi ini tidak bisa di-undo otomatis)`)) {
+        resultEl.textContent = `Ditemukan ${toDelete.length} baris duplikat - belum dihapus (dibatalkan).`;
+        return;
+    }
+
+    resultEl.textContent = "Menghapus duplikat, mohon tunggu...";
+    let deleted = 0;
+    const failedList = [];
+
+    for(const row of toDelete){
+        try {
+            await InvDB.remove("bom", row.id);
+            deleted++;
+        } catch(err){
+            console.error("Gagal hapus baris duplikat:", row, err);
+            failedList.push(`${row.menu_code} / ${row.material_code}`);
+        }
+    }
+
+    // refresh bersih dari server supaya pasti sinkron
+    ALL_BOM = await InvDB.getAll("bom");
+    renderMenus();
+
+    resultEl.textContent = failedList.length === 0
+        ? `✓ Selesai. ${deleted} baris duplikat berhasil dihapus dari seluruh resep.`
+        : `✓ ${deleted} baris dihapus. ${failedList.length} baris gagal dihapus (cek koneksi lalu coba lagi): ${failedList.join(", ")}`;
+    toast(`✓ ${deleted} baris duplikat dibersihkan`,"success");
+}
+
 function renderMenus(){
     const key = document.getElementById("searchMenu").value.toLowerCase();
     const filtered = ALL_MENUS.filter(m =>
@@ -451,6 +507,7 @@ async function submitAddBomRow(menuCode){
     if(already && !await uiConfirm(`"${ADD_BOM_SELECTED.name}" sudah ada di resep ini. Tambah baris duplikat lagi?`)) return;
 
     const row = {
+        id: menuCode + "__" + ADD_BOM_SELECTED.code,
         menu_code: menuCode,
         menu_name: menu ? menu.menu_name : "",
         category: menu ? (menu.category || null) : null,
@@ -541,14 +598,39 @@ async function processBomWorkbook(wb){
 
     // BOM sheet: col A menu code, B menu name, C material code, D material name, E qty, F uom
     // Header may span a couple of rows before data starts; find first row where col C is numeric/non-empty and col A too.
+    //
+    // PENTING: di sini kita DEDUPE otomatis berdasarkan (kode menu +
+    // kode bahan). Kalau file sumbernya kebetulan punya baris yang
+    // sama tertulis 2x (atau lebih), cuma kemunculan PERTAMA yang
+    // dipakai - sisanya dilewati & dihitung supaya kelihatan di
+    // preview. Ini mencegah masalah "semua bahan dobel" terulang lagi
+    // di masa depan, apapun penyebab aslinya di file sumber.
     const bomParsed = [];
+    const seenKeys = new Set();
+    let skippedDuplicates = 0;
+
     bomRows.forEach(row => {
         const menuCode = row[0], menuName = row[1], matCode = row[2], matName = row[3], qty = row[4], uom = row[5];
         if(menuCode === "" || menuCode === undefined || menuCode === null) return;
         if(matCode === "" || matCode === undefined || matCode === null) return;
         // skip header-like rows
         if(String(menuCode).toLowerCase().includes("nomor material")) return;
+
+        const key = String(menuCode).trim() + "||" + String(matCode).trim();
+        if(seenKeys.has(key)){
+            skippedDuplicates++;
+            return;
+        }
+        seenKeys.add(key);
+
         bomParsed.push({
+            // ID deterministik (bukan random auto-ID Firestore) supaya
+            // upload yang sama di-klik 2x (mis. koneksi lambat, orang
+            // menekan lagi karena dikira belum tersimpan) TIDAK BISA
+            // menghasilkan baris dobel lagi - pasangan menu+bahan yang
+            // sama akan selalu menimpa dokumen yang sama, bukan bikin
+            // dokumen baru.
+            id: String(menuCode).trim() + "__" + String(matCode).trim(),
             menu_code: String(menuCode).trim(),
             menu_name: String(menuName || "").trim(),
             category: null,
@@ -598,27 +680,51 @@ async function processBomWorkbook(wb){
     document.getElementById("bomPrevRows").textContent = bomParsed.length;
     document.getElementById("bomPrevNewItems").textContent = newCount;
     document.getElementById("bomPrevUpdatedItems").textContent = updatedCount;
+
+    const dupWarning = document.getElementById("bomPrevDupWarning");
+    if(skippedDuplicates > 0){
+        dupWarning.style.display = "block";
+        dupWarning.textContent = `⚠ ${skippedDuplicates} baris di file ini adalah DUPLIKAT (kode menu + kode bahan sama persis dengan baris lain) dan otomatis dilewati - kemungkinan besar file sumbernya sendiri punya baris yang tertulis dobel.`;
+    } else {
+        dupWarning.style.display = "none";
+    }
+
     document.getElementById("bomPreview").style.display = "block";
 }
+
+let BOM_IMPORT_IN_PROGRESS = false;
 
 async function confirmBomImport(){
     if(!IS_ADMIN){ toast("Hanya Admin yang boleh update BOM","error"); return; }
     if(!PENDING_BOM_IMPORT){ toast("Belum ada file yang diproses","error"); return; }
+    if(BOM_IMPORT_IN_PROGRESS){ toast("Sedang diproses, mohon tunggu - jangan tekan lagi","error"); return; }
     if(!await uiConfirm("Update Master Data (Item & BOM) dengan file ini? Data BOM & daftar menu lama akan digantikan.")) return;
 
-    await InvDB.clear("bom");
-    await InvDB.clear("menus");
-    await InvDB.bulkPut("bom", PENDING_BOM_IMPORT.bom);
-    await InvDB.bulkPut("menus", PENDING_BOM_IMPORT.menus);
-    await InvDB.bulkPut("materials", PENDING_BOM_IMPORT.materials);
+    BOM_IMPORT_IN_PROGRESS = true;
+    const btn = document.querySelector('#bomPreview button.btn-primary');
+    if(btn){ btn.disabled = true; btn.textContent = "Memproses, mohon tunggu..."; }
 
-    PENDING_BOM_IMPORT = null;
-    document.getElementById("bomPreview").style.display = "none";
-    document.getElementById("bomFileInput").value = "";
-    document.getElementById("bomFileName").textContent = "";
+    try {
+        await InvDB.clear("bom");
+        await InvDB.clear("menus");
+        await InvDB.bulkPut("bom", PENDING_BOM_IMPORT.bom);
+        await InvDB.bulkPut("menus", PENDING_BOM_IMPORT.menus);
+        await InvDB.bulkPut("materials", PENDING_BOM_IMPORT.materials);
 
-    await refreshAll();
-    toast("✓ Master Data berhasil diperbarui","success");
+        PENDING_BOM_IMPORT = null;
+        document.getElementById("bomPreview").style.display = "none";
+        document.getElementById("bomFileInput").value = "";
+        document.getElementById("bomFileName").textContent = "";
+
+        await refreshAll();
+        toast("✓ Master Data berhasil diperbarui","success");
+    } catch(err){
+        console.error("Gagal update BOM:", err);
+        toast("Gagal simpan. Cek koneksi internet lalu coba lagi.","error");
+    } finally {
+        BOM_IMPORT_IN_PROGRESS = false;
+        if(btn){ btn.disabled = false; btn.textContent = "✓ Terapkan Update Ini"; }
+    }
 }
 
 /* ================= SUPPLIER BARANG (In CK / In Supplier) ================= */
