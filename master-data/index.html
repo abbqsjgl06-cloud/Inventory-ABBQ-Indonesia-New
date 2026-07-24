@@ -7,7 +7,7 @@
 <link rel="icon" href="../logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared/inv-style.css?v=36">
+<link rel="stylesheet" href="../shared/inv-style.css?v=37">
 <style>
   :root{ --accent:#4A4A4A; --accent-tint:#ECECEC; }
   .tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;}
@@ -18,6 +18,25 @@
   .tab-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
+
+  /* Tabel di halaman ini (BOM/Resep Menu, Item Bahan Baku, Supplier
+     Barang) dibuat lebih ringkas + kolom nama tetap kelihatan saat
+     digeser, supaya tidak perlu geser jauh-jauh cuma untuk lihat nama
+     item/menu-nya. */
+  .table-wrap table{ min-width:0; }
+  .table-wrap th, .table-wrap td{
+    font-size:12px;
+    padding:6px 8px;
+  }
+  .table-wrap th:nth-child(2), .table-wrap td:nth-child(2){
+    position:sticky;
+    left:0;
+    background:var(--card);
+    max-width:130px;
+    white-space:normal;
+    z-index:2;
+  }
+  .table-wrap th:nth-child(2){ background:var(--accent-tint); z-index:3; }
 </style>
 </head>
 <body>
@@ -145,6 +164,24 @@
     </div>
 
     <div class="tab-panel" id="tab-bom">
+      <div class="panel admin-only" id="panelAddMenu">
+        <div class="panel-title">➕ Tambah Menu Baru</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Untuk menu yang benar-benar belum pernah ada. Setelah menu-nya dibuat, tambahkan resep
+          (bahan bakunya) lewat kartu menu yang muncul di bawah - pakai "+ Tambah Bahan" seperti
+          menu lain.
+        </p>
+        <div class="field">
+          <label>Kode Menu</label>
+          <input type="text" id="newMenuCode" placeholder="Kode menu (harus unik)">
+        </div>
+        <div class="field">
+          <label>Nama Menu</label>
+          <input type="text" id="newMenuName" placeholder="Nama menu">
+        </div>
+        <button class="btn btn-primary" onclick="addNewMenu()">+ Buat Menu</button>
+      </div>
+
       <div class="panel">
         <div class="panel-title">Cari Menu</div>
         <div class="field">
@@ -238,6 +275,6 @@
 <script src="../shared/seed-data.js?v=25"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
-<script src="app.js?v=27"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>

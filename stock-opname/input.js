@@ -216,7 +216,21 @@ document.addEventListener("authReady", (e) => {
 
     const manageBox = document.getElementById("adminManageBox");
     if(manageBox) manageBox.style.display = (e.detail.role === "admin") ? "block" : "none";
+
+    const jumpBtn = document.getElementById("jumpToAdminManage");
+    if(jumpBtn) jumpBtn.style.display = (e.detail.role === "admin") ? "block" : "none";
 });
+
+function jumpToAdminManage(){
+    const panel = document.getElementById("adminManagePanel");
+    const arrow = document.getElementById("adminManageArrow");
+    if(panel && panel.style.display === "none"){
+        panel.style.display = "block";
+        if(arrow) arrow.textContent = "▴";
+    }
+    const box = document.getElementById("adminManageBox");
+    if(box) box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     const fileInput = document.getElementById("adminUploadFile");

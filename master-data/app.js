@@ -187,6 +187,35 @@ async function saveMaterial(){
 
 /* ================= BOM / MENU ================= */
 
+async function addNewMenu(){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh menambah menu","error"); return; }
+
+    const code = document.getElementById("newMenuCode").value.trim();
+    const name = document.getElementById("newMenuName").value.trim();
+
+    if(!code || !name){ toast("Isi Kode dan Nama Menu dulu","error"); return; }
+    if(ALL_MENUS.some(m => m.menu_code === code)){
+        toast("Kode menu ini sudah ada - cari menu itu di bawah untuk edit resepnya","error");
+        return;
+    }
+
+    try {
+        const newMenu = { menu_code: code, menu_name: name };
+        await InvDB.put("menus", newMenu);
+        ALL_MENUS.push(newMenu);
+        ALL_MENUS.sort((a,b)=> (a.menu_name||"").localeCompare(b.menu_name||""));
+
+        document.getElementById("newMenuCode").value = "";
+        document.getElementById("newMenuName").value = "";
+        document.getElementById("searchMenu").value = code;
+        renderMenus();
+        toast(`✓ Menu "${name}" dibuat - tambahkan resepnya di kartu menu di bawah`,"success");
+    } catch(err){
+        console.error("Gagal buat menu:", err);
+        toast("Gagal simpan. Cek koneksi internet.","error");
+    }
+}
+
 function renderMenus(){
     const key = document.getElementById("searchMenu").value.toLowerCase();
     const filtered = ALL_MENUS.filter(m =>
@@ -201,6 +230,14 @@ function renderMenus(){
 
     document.getElementById("menuList").innerHTML = filtered.map(m => {
         const rows = ALL_BOM.filter(b => b.menu_code === m.menu_code);
+
+        // Tandai bahan yang MUNCUL LEBIH DARI 1X di resep yang sama
+        // (persis kasus di foto Anda) supaya langsung kelihatan mana
+        // yang perlu dihapus, tanpa harus bandingkan manual satu-satu.
+        const codeCounts = {};
+        rows.forEach(r => { codeCounts[r.material_code] = (codeCounts[r.material_code]||0) + 1; });
+        const duplicateCount = Object.values(codeCounts).filter(c => c > 1).length;
+
         return `
         <div class="panel">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -210,6 +247,7 @@ function renderMenus(){
                 </div>
                 <span class="chip">${rows.length} bahan</span>
             </div>
+            ${duplicateCount > 0 ? `<div style="background:#FCEBE9;color:#8C2A1E;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px;">⚠ Ada bahan yang tercatat lebih dari 1x di resep ini (baris merah di bawah) - cek &amp; hapus yang dobel.</div>` : ""}
             <div class="table-wrap">
                 <table>
                     <thead><tr><th>Kode Bahan</th><th>Nama Bahan</th><th class="num">Qty/Porsi</th><th>UOM</th>${IS_ADMIN ? "<th></th>" : ""}</tr></thead>
@@ -226,8 +264,8 @@ function renderMenus(){
                                 </td>
                             </tr>
                         ` : `
-                            <tr>
-                                <td>${r.material_code}</td>
+                            <tr${codeCounts[r.material_code] > 1 ? ` style="background:#FCEBE9;"` : ""}>
+                                <td>${r.material_code}${codeCounts[r.material_code] > 1 ? ` <small style="color:#C23B2E;">⚠dobel</small>` : ""}</td>
                                 <td>${r.material_name}</td>
                                 <td class="num">${r.qty_per_portion}</td>
                                 <td>${r.uom}</td>

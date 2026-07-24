@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="style.css">
+        href="style.css?v=2">
 
 </head>
 
@@ -67,6 +67,10 @@
 
         <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="filterTable()" style="width:100%;padding:12px;margin:15px 0;font-size:16px;border:2px solid #f1c40f;border-radius:8px;">
 
+        <button type="button" id="jumpToAdminManage" onclick="jumpToAdminManage()" style="display:none;width:100%;background:#1C1B19;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+            🛠 Tambah / Hapus Item (Admin)
+        </button>
+
         <div class="table-scroll-wrap">
         <table class="table-stock">
 
@@ -107,7 +111,7 @@
                 begitu ditekan <b>SIMPAN</b> di bawah.
             </p>
             <div class="table-scroll-wrap">
-                <table class="table-stock">
+                <table class="table-prep">
                     <thead>
                         <tr>
                             <th>Kode</th>

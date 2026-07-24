@@ -207,8 +207,6 @@ thead th{
   text-transform:uppercase;
   letter-spacing:.04em;
   white-space:nowrap;
-  position:sticky;
-  top:0;
 }
 
 tbody td{

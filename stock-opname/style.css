@@ -142,9 +142,6 @@ button:hover{
     white-space:normal;
     overflow-wrap:break-word;
 
-    position:sticky;
-    top:0;
-
 }
 
 .table-stock td{
@@ -189,6 +186,39 @@ button:hover{
     text-align:center;
 
 }
+
+/* =========================
+   TABLE - PRODUCT PREPARATION (3 kolom: Kode, Nama, Qty)
+   Class terpisah dari .table-stock supaya TIDAK ikut kena aturan
+   lebar kolom ke-1/2/3/4/5/6 di atas (yang dirancang khusus utk
+   tabel 6 kolom) - itu penyebab kolom Qty di Product Preparation
+   sempat melebar penuh layar.
+========================= */
+
+.table-prep{
+    width:100%;
+    table-layout:fixed;
+    border-collapse:collapse;
+}
+.table-prep th{
+    background:#FFD400;
+    border:1px solid #ddd;
+    padding:6px 4px;
+    text-align:center;
+    font-size:11px;
+}
+.table-prep td{
+    border:1px solid #ddd;
+    padding:6px 4px;
+    text-align:center;
+    font-size:12px;
+    white-space:normal;
+    overflow-wrap:break-word;
+}
+.table-prep th:nth-child(1), .table-prep td:nth-child(1){ width:70px; }
+.table-prep th:nth-child(2), .table-prep td:nth-child(2){ text-align:left; width:auto; }
+.table-prep th:nth-child(3), .table-prep td:nth-child(3){ width:70px; }
+.table-prep .qty-input{ width:60px; }
 
 /* =========================
    HISTORY CARD
