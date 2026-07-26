@@ -80,10 +80,30 @@ const CURATED_MENU_LIST = [
     { category: 'Kerupuk', code: "4231003", name: 'EMPING' }
 ];
 
-let OUTLETS = [];                     // [{id, name}, ...] terurut sesuai nama
+let OUTLETS = [];                     // [{id, name}, ...] terurut sesuai urutan custom di bawah
 let USAGE_DAILY_MENU = [];            // semua outlet, mentah
 let DAILY_BY_MENU_CODE = new Map();   // menu_code -> Map(outletId -> qty) untuk rentang aktif
 let LAST_RESULT = null;               // { outlets:[...], rows:[{category,code,name, byOutlet:{}, total}] }
+
+// Urutan tampil outlet dari kiri ke kanan (kolom laporan), sesuai
+// urutan yang diminta - BUKAN alfabet. Outlet baru yang belum ada di
+// daftar ini otomatis ditaruh di ujung KANAN (setelah sbsd), diurutkan
+// dari yang paling lama dibuat supaya konsisten setiap kali dibuka.
+const OUTLET_DISPLAY_ORDER = [
+    "sser1", "spur", "sblr", "srsb", "samm", "sjgl",
+    "sakg", "scgv", "sjwb", "sjab", "svmm", "stpl", "sbsd"
+];
+
+function sortOutletsCustomOrder(a, b){
+    const ia = OUTLET_DISPLAY_ORDER.indexOf(a.id);
+    const ib = OUTLET_DISPLAY_ORDER.indexOf(b.id);
+    const posA = ia === -1 ? OUTLET_DISPLAY_ORDER.length : ia;
+    const posB = ib === -1 ? OUTLET_DISPLAY_ORDER.length : ib;
+    if(posA !== posB) return posA - posB;
+    // keduanya di luar daftar (outlet baru) - urutkan dari yang paling
+    // lama dibuat, supaya outlet baru berikutnya konsisten nempel di ujung.
+    return (a.createdAt || "").localeCompare(b.createdAt || "");
+}
 
 document.addEventListener("authReady", async (e) => {
     const role = e.detail.role;
@@ -93,7 +113,7 @@ document.addEventListener("authReady", async (e) => {
     }
     document.getElementById("reportContent").style.display = "block";
 
-    OUTLETS = (await InvDB.getAll("outlets")).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    OUTLETS = (await InvDB.getAll("outlets")).sort(sortOutletsCustomOrder);
 
     // Ambil usageDailyMenu LINTAS SEMUA OUTLET - bukan cuma outlet yang
     // lagi aktif di pemilih outlet. InvDB.getAll() otomatis menyaring

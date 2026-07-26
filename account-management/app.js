@@ -294,6 +294,8 @@ async function loadOutlets() {
     populateOutletSelect();
 }
 
+let EDITING_OUTLET_ID = null;
+
 function renderOutlets() {
     const body = document.getElementById("outletBody");
     if (OUTLETS.length === 0) {
@@ -303,10 +305,48 @@ function renderOutlets() {
     body.innerHTML = OUTLETS.map(o => `
         <tr>
             <td><code>${o.id}</code></td>
-            <td>${o.name}</td>
-            <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="deleteOutlet('${o.id}')">Hapus</button></td>
+            <td>${o.id === EDITING_OUTLET_ID
+                ? `<input type="text" id="editOutletName_${o.id}" value="${o.name}" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--line);">`
+                : o.name}</td>
+            <td style="white-space:nowrap;">
+                ${o.id === EDITING_OUTLET_ID
+                    ? `<button class="btn btn-primary" style="padding:4px 10px;font-size:12px;width:auto;" onclick="saveOutletName('${o.id}')">Simpan</button>
+                       <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;width:auto;" onclick="cancelEditOutlet()">Batal</button>`
+                    : `<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;width:auto;" onclick="editOutletName('${o.id}')">Edit</button>
+                       <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;width:auto;" onclick="deleteOutlet('${o.id}')">Hapus</button>`
+                }
+            </td>
         </tr>
     `).join("");
+}
+
+function editOutletName(id){
+    EDITING_OUTLET_ID = id;
+    renderOutlets();
+}
+
+function cancelEditOutlet(){
+    EDITING_OUTLET_ID = null;
+    renderOutlets();
+}
+
+async function saveOutletName(id){
+    const input = document.getElementById("editOutletName_" + id);
+    const newName = input ? input.value.trim() : "";
+    if(!newName){ toast("Nama outlet tidak boleh kosong","error"); return; }
+
+    const outlet = OUTLETS.find(o => o.id === id);
+    if(!outlet) return;
+
+    try {
+        await InvDB.put("outlets", { ...outlet, name: newName });
+        EDITING_OUTLET_ID = null;
+        await loadOutlets();
+        toast("✓ Nama outlet diperbarui","success");
+    } catch(err){
+        console.error("Gagal ubah nama outlet:", err);
+        toast("Gagal simpan. Cek koneksi internet.","error");
+    }
 }
 
 async function addOutlet() {
@@ -339,7 +379,7 @@ async function deleteOutlet(id) {
 function populateOutletSelect() {
     const options = OUTLETS.length === 0
         ? `<option value="">— Belum ada outlet —</option>`
-        : `<option value="">— (khusus role Admin/Viewer) —</option>` + OUTLETS.map(o => `<option value="${o.id}">${o.name}</option>`).join("");
+        : `<option value="">— Kosongkan = lihat SEMUA outlet (Admin/Viewer) —</option>` + OUTLETS.map(o => `<option value="${o.id}">${o.name}</option>`).join("");
 
     ["acctOutlet", "newAcctOutlet", "migrateOutletSelect"].forEach(id => {
         const sel = document.getElementById(id);
