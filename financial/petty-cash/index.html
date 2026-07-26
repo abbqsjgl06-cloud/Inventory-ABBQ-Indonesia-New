@@ -19,24 +19,41 @@
   .pc-summary-card.usage{background:#FCEBE9;}
   .photo-thumb{width:36px;height:36px;object-fit:cover;border-radius:6px;cursor:pointer;}
 
-  /* Tabel Riwayat & Reimburse dibuat table-layout:fixed dengan lebar
-     kolom dipatok kecil untuk kolom pendek (tanggal/kategori/checkbox/
-     foto/aksi) - sisanya jatuh ke kolom Deskripsi supaya semua kolom
-     termasuk tombol aksi di kanan tetap kelihatan tanpa geser layar. */
-  .pc-hist-table-wrap table, .pc-reimb-table-wrap table{ table-layout:fixed; }
+  /* PERBAIKAN: sebelumnya pakai table-layout:fixed dengan lebar kolom
+     dalam px, tapi lupa padding ikut menambah lebar asli (box-sizing
+     default browser itu content-box) - total lebar kolom jadi lebih
+     dari layar, kolom Deskripsi/Item yang tidak dikasih lebar eksplisit
+     akhirnya "kebagian" lebar negatif/nyaris nol, jadi tiap HURUF
+     turun baris sendiri-sendiri. Sekarang pakai table-layout:auto
+     (bukan fixed) + box-sizing:border-box supaya perhitungan lebar
+     aman, dan kolom Deskripsi dikasih lebar minimum yang wajar supaya
+     bisa wrap 2-3 baris dengan enak dibaca.
+  */
+  .pc-hist-table-wrap table, .pc-reimb-table-wrap table{
+    table-layout:auto;
+  }
+  .pc-hist-table-wrap th, .pc-hist-table-wrap td,
+  .pc-reimb-table-wrap th, .pc-reimb-table-wrap td{
+    box-sizing:border-box;
+    padding:6px 5px;
+    font-size:11.5px;
+  }
 
-  .pc-hist-table-wrap th:nth-child(1), .pc-hist-table-wrap td:nth-child(1){ width:22px; padding-left:4px; padding-right:2px; }
-  .pc-hist-table-wrap th:nth-child(2), .pc-hist-table-wrap td:nth-child(2){ width:56px; }
-  .pc-hist-table-wrap th:nth-child(3), .pc-hist-table-wrap td:nth-child(3){ width:52px; }
-  .pc-hist-table-wrap th:nth-child(5), .pc-hist-table-wrap td:nth-child(5){ width:66px; }
-  .pc-hist-table-wrap th:nth-child(6), .pc-hist-table-wrap td:nth-child(6){ width:40px; }
-  .pc-hist-table-wrap th:nth-child(7), .pc-hist-table-wrap td:nth-child(7){ width:50px; }
+  .pc-hist-table-wrap th:nth-child(1), .pc-hist-table-wrap td:nth-child(1){ width:20px; padding-left:3px; padding-right:1px; }
+  .pc-hist-table-wrap th:nth-child(2), .pc-hist-table-wrap td:nth-child(2){ width:50px; }
+  .pc-hist-table-wrap th:nth-child(3), .pc-hist-table-wrap td:nth-child(3){ width:48px; }
+  .pc-hist-table-wrap th:nth-child(4), .pc-hist-table-wrap td:nth-child(4){ min-width:80px; }
+  .pc-hist-table-wrap th:nth-child(5), .pc-hist-table-wrap td:nth-child(5){ width:58px; }
+  .pc-hist-table-wrap th:nth-child(6), .pc-hist-table-wrap td:nth-child(6){ width:38px; }
+  .pc-hist-table-wrap th:nth-child(7), .pc-hist-table-wrap td:nth-child(7){ width:46px; }
 
-  .pc-reimb-table-wrap th:nth-child(1), .pc-reimb-table-wrap td:nth-child(1){ width:52px; }
-  .pc-reimb-table-wrap th:nth-child(2), .pc-reimb-table-wrap td:nth-child(2){ width:52px; }
-  .pc-reimb-table-wrap th:nth-child(3), .pc-reimb-table-wrap td:nth-child(3){ width:52px; }
-  .pc-reimb-table-wrap th:nth-child(5), .pc-reimb-table-wrap td:nth-child(5){ width:64px; }
-  .pc-reimb-table-wrap th:nth-child(6), .pc-reimb-table-wrap td:nth-child(6){ width:50px; }
+  .pc-reimb-table-wrap th:nth-child(1), .pc-reimb-table-wrap td:nth-child(1){ width:48px; }
+  .pc-reimb-table-wrap th:nth-child(2), .pc-reimb-table-wrap td:nth-child(2){ width:48px; }
+  .pc-reimb-table-wrap th:nth-child(3), .pc-reimb-table-wrap td:nth-child(3){ width:48px; }
+  .pc-reimb-table-wrap th:nth-child(4), .pc-reimb-table-wrap td:nth-child(4){ min-width:80px; }
+  .pc-reimb-table-wrap th:nth-child(5), .pc-reimb-table-wrap td:nth-child(5){ width:58px; }
+  .pc-reimb-table-wrap th:nth-child(6), .pc-reimb-table-wrap td:nth-child(6){ width:44px; }
+
 
   /* Tombol aksi (Edit/Hapus, Foto/Batalkan) ditumpuk vertikal supaya
      rapi di kolom yang sempit, bukan saling desak horizontal. */

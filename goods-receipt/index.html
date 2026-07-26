@@ -23,17 +23,27 @@
   .date-group{margin-bottom:4px;}
   .toggle-arrow{display:inline-block;width:14px;color:var(--accent);}
 
-  /* Tabel RIWAYAT saja (bukan tabel review OCR / daftar sementara di
-     atasnya, kolomnya beda): checkbox/Qty/UOM dipersempit, kolom Item
-     dibiarkan lebih lega (boleh 2 baris) - supaya semua kolom termasuk
-     tombol Edit/Hapus di kanan tetap kelihatan tanpa geser layar. */
-  .riwayat-table-wrap table{ table-layout:fixed; }
-  .riwayat-table-wrap th:nth-child(1), .riwayat-table-wrap td:nth-child(1){ width:26px; padding-left:4px; padding-right:2px; }
-  .riwayat-table-wrap th:nth-child(2), .riwayat-table-wrap td:nth-child(2){ width:54px; }
-  .riwayat-table-wrap th:nth-child(4), .riwayat-table-wrap td:nth-child(4){ width:40px; }
-  .riwayat-table-wrap th:nth-child(5), .riwayat-table-wrap td:nth-child(5){ width:34px; }
-  .riwayat-table-wrap th:nth-child(6), .riwayat-table-wrap td:nth-child(6){ width:64px; }
-  .riwayat-table-wrap th:nth-child(7), .riwayat-table-wrap td:nth-child(7){ width:64px; }
+  /* PERBAIKAN: sebelumnya table-layout:fixed dengan lebar dalam px
+     tapi lupa padding ikut menambah lebar asli (box-sizing default
+     browser = content-box) - total lebar kolom jadi melebihi layar,
+     kolom Item yang tidak dikasih lebar eksplisit akhirnya kebagian
+     lebar negatif/nyaris nol, jadi tiap HURUF turun baris sendiri.
+     Sekarang pakai table-layout:auto + box-sizing:border-box supaya
+     hitungannya aman, kolom Item dikasih lebar minimum wajar supaya
+     bisa wrap 2-3 baris dengan enak dibaca. */
+  .riwayat-table-wrap table{ table-layout:auto; }
+  .riwayat-table-wrap th, .riwayat-table-wrap td{
+    box-sizing:border-box;
+    padding:6px 5px;
+    font-size:11.5px;
+  }
+  .riwayat-table-wrap th:nth-child(1), .riwayat-table-wrap td:nth-child(1){ width:20px; padding-left:3px; padding-right:1px; }
+  .riwayat-table-wrap th:nth-child(2), .riwayat-table-wrap td:nth-child(2){ width:48px; }
+  .riwayat-table-wrap th:nth-child(3), .riwayat-table-wrap td:nth-child(3){ min-width:90px; }
+  .riwayat-table-wrap th:nth-child(4), .riwayat-table-wrap td:nth-child(4){ width:36px; }
+  .riwayat-table-wrap th:nth-child(5), .riwayat-table-wrap td:nth-child(5){ width:32px; }
+  .riwayat-table-wrap th:nth-child(6), .riwayat-table-wrap td:nth-child(6){ width:56px; }
+  .riwayat-table-wrap th:nth-child(7), .riwayat-table-wrap td:nth-child(7){ width:44px; }
 
   .riwayat-table-wrap td:nth-child(7) .btn{
     display:block; width:100%; margin-bottom:3px; padding:3px 4px !important;

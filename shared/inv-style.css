@@ -205,6 +205,15 @@ table{
   table-layout:auto;
 }
 
+thead th, tbody td{
+  /* Supaya width:Npx yang dipasang modul-modul tertentu (mis. Petty
+     Cash, Barang Masuk) benar-benar berarti "lebar total termasuk
+     padding" - bukan "lebar konten, padding nambah di luar" (default
+     browser). Kalau lupa ini, kolom teks panjang bisa kebagian lebar
+     negatif dan tiap huruf turun baris sendiri-sendiri. */
+  box-sizing:border-box;
+}
+
 thead th{
   background:var(--accent-tint);
   color:var(--ink);
