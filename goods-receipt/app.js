@@ -477,7 +477,7 @@ function renderHistory(){
                         </div>
                         ` : ""}
                         ` : ""}
-                        <div class="table-wrap" style="margin:8px 0 4px;">
+                        <div class="table-wrap riwayat-table-wrap" style="margin:8px 0 4px;">
                             <table>
                                 <thead>
                                     <tr>

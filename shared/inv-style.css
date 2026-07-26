@@ -194,25 +194,39 @@ table{
   width:100%;
   border-collapse:collapse;
   font-size:13px;
-  min-width:520px;
+
+  /* Sebelumnya min-width:520px - itu yang bikin banyak tabel (Petty
+     Cash, Barang Masuk, Cash Handover, dll) selalu lebih lebar dari
+     layar HP dan harus digeser. Dihapus supaya tabel menyusut mengikuti
+     isi & muat penuh di layar sempit; kalau memang kolomnya banyak
+     (mis. laporan lintas outlet), .table-wrap masih overflow-x:auto
+     sebagai jaring pengaman. */
+  min-width:0;
+  table-layout:auto;
 }
 
 thead th{
   background:var(--accent-tint);
   color:var(--ink);
   text-align:left;
-  padding:10px 10px;
+  padding:8px 8px;
   font-weight:700;
   font-size:11px;
   text-transform:uppercase;
   letter-spacing:.04em;
-  white-space:nowrap;
+
+  /* Sebelumnya nowrap - dibiarkan boleh 2 baris supaya kolom tidak
+     memaksa tabel melebar keluar layar. */
+  white-space:normal;
+  overflow-wrap:break-word;
 }
 
 tbody td{
-  padding:9px 10px;
+  padding:8px 8px;
   border-top:1px solid var(--line);
-  white-space:nowrap;
+
+  white-space:normal;
+  overflow-wrap:break-word;
 }
 
 tbody tr:hover{background:var(--paper);}

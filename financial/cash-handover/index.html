@@ -11,18 +11,28 @@
 <style>
   :root{ --accent:#0D7A5F; --accent-tint:#E2F5EF; }
   thead th{background:var(--accent-tint);}
-  .hc-table{width:100%;border-collapse:collapse;font-size:13px;}
-  .hc-table th, .hc-table td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;}
+  .hc-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .hc-table th, .hc-table td{padding:6px 3px;border-bottom:1px solid var(--line);text-align:right;overflow-wrap:break-word;}
   .hc-table th:first-child, .hc-table td:first-child{text-align:left;}
-  .hc-table thead tr.group-row th{text-align:center;background:var(--accent-tint);font-size:11px;letter-spacing:.03em;text-transform:uppercase;}
+  .hc-table thead tr.group-row th{text-align:center;background:var(--accent-tint);font-size:10px;letter-spacing:.02em;text-transform:uppercase;}
   .hc-table thead tr.group-row th.open-col{background:#DCEEFC;}
   .hc-table thead tr.group-row th.close-col{background:#FDF3C7;}
-  .hc-table input{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:13px;text-align:right;}
+  .hc-table input{width:100%;border:1px solid var(--line);border-radius:6px;padding:4px 2px;font-size:12px;text-align:right;}
   .hc-table .amount-cell{font-weight:600;}
   .hc-table tr.total-row td{font-weight:800;background:#FBEBC7;}
   .hc-table tr.expected-row td{font-weight:800;background:#FBEBC7;}
   .hc-table tr.variance-row td{font-weight:800;background:#FBEBC7;}
   .hc-table tr.total-row input, .hc-table tr.expected-row input{text-align:right;font-weight:800;background:#fff;}
+
+  /* Kolom Qty (open & close) dipersempit - jumlah lembar/koin biasanya
+     angka pendek, jadi tidak perlu selebar kolom Amount. Ini yang
+     bikin ke-5 kolom (Fractions, Qty x2, Amount x2) muat penuh di HP
+     tanpa perlu geser layar. */
+  .hc-table th:nth-child(1), .hc-table td:nth-child(1){ width:22%; }
+  .hc-table th:nth-child(2), .hc-table td:nth-child(2){ width:12%; }
+  .hc-table th:nth-child(3), .hc-table td:nth-child(3){ width:27%; }
+  .hc-table th:nth-child(4), .hc-table td:nth-child(4){ width:12%; }
+  .hc-table th:nth-child(5), .hc-table td:nth-child(5){ width:27%; }
 </style>
 </head>
 <body>
