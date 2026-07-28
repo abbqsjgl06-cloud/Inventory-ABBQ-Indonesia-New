@@ -238,13 +238,16 @@ async function loadForDate(){
     }
 }
 
-// Total semua penggunaan Petty Cash (RIWAYAT PENGGUNAAN di Tracking
-// Petty Cash) pada tanggal yang sama dengan Cash Handover ini.
+// Total Penggunaan Petty Cash yang BELUM di-reimburse - persis logika
+// yang sama dengan kartu "TOTAL PENGGUNAAN" di halaman Tracking Petty
+// Cash (bukan dijumlah per tanggal, karena transaksi yang belum
+// direimburse bisa dari tanggal-tanggal sebelumnya juga dan itu yang
+// jadi tanggungan Cash Handover saat ini).
 async function autoFillPettyCashReceipts(date){
     try {
         const usage = await InvDB.getAll("pettyCashUsage");
         const total = usage
-            .filter(u => u.date === date)
+            .filter(u => !u.reimbursed)
             .reduce((sum, u) => sum + (Number(u.amount) || 0), 0);
         document.getElementById("pcReceipts").value = total;
         recalc();

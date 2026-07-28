@@ -198,7 +198,8 @@ function toggleShowAll(){
     document.getElementById("dateTo").disabled = showAll;
 }
 
-let LAST_REPORT_DATA = null; // dipakai exportExcel()
+let LAST_REPORT_DATA = null; // dipakai exportExcel() & summary
+let SUMMARY_VISIBLE = false;
 
 async function generateReport(){
     const showAll = document.getElementById("showAll").checked;
@@ -244,6 +245,70 @@ async function generateReport(){
     const dates = [...byDate.keys()].sort();
     LAST_REPORT_DATA = { dates, byDate };
     renderReport(dates, byDate);
+    if(SUMMARY_VISIBLE) renderSummary(dates, byDate);
+}
+
+function toggleSummary(){
+    SUMMARY_VISIBLE = !SUMMARY_VISIBLE;
+    const btn = document.getElementById("summaryToggleBtn");
+    if(SUMMARY_VISIBLE){
+        btn.textContent = "📊 Sembunyikan Ringkasan";
+        if(LAST_REPORT_DATA) renderSummary(LAST_REPORT_DATA.dates, LAST_REPORT_DATA.byDate);
+        else toast("Tekan \"Tampilkan\" dulu untuk memuat data", "error");
+    } else {
+        btn.textContent = "📊 Ringkasan per Tanggal";
+        document.getElementById("summaryArea").innerHTML = "";
+    }
+}
+
+// Rekap 1 baris per tanggal (Sales/CC/Avg dijumlah dari semua jam di
+// tanggal itu) + baris Total paling bawah menjumlah seluruh rentang
+// yang lagi difilter - buat lihat cepat total penjualan tanpa harus
+// buka tabel per jam satu-satu.
+function renderSummary(dates, byDate){
+    const area = document.getElementById("summaryArea");
+
+    if(dates.length === 0){
+        area.innerHTML = "";
+        return;
+    }
+
+    let grandSales = 0, grandQty = 0;
+    const rows = dates.map(date => {
+        const hourMap = byDate.get(date);
+        let sales = 0, qty = 0;
+        hourMap.forEach(v => { sales += v.sales; qty += v.qty; });
+        grandSales += sales; grandQty += qty;
+        const avg = qty > 0 ? Math.round(sales / qty) : 0;
+        return `<tr>
+            <td>${date}</td>
+            <td class="num">${sales.toLocaleString("id-ID")}</td>
+            <td class="num">${qty.toLocaleString("id-ID")}</td>
+            <td class="num">${avg.toLocaleString("id-ID")}</td>
+        </tr>`;
+    }).join("");
+
+    const grandAvg = grandQty > 0 ? Math.round(grandSales / grandQty) : 0;
+
+    area.innerHTML = `
+        <div class="panel hs-day-table">
+            <div class="hs-day-title">📊 Ringkasan per Tanggal (${dates[0]} s/d ${dates[dates.length - 1]})</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tanggal</th><th class="num">Sales</th><th class="num">CC</th><th class="num">Avg</th></tr></thead>
+                    <tbody>
+                        ${rows}
+                        <tr class="total-row">
+                            <td>Total (${dates.length} hari)</td>
+                            <td class="num">${grandSales.toLocaleString("id-ID")}</td>
+                            <td class="num">${grandQty.toLocaleString("id-ID")}</td>
+                            <td class="num">${grandAvg.toLocaleString("id-ID")}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 function renderReport(dates, byDate){
