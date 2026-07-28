@@ -54,7 +54,8 @@ const InvDB = (() => {
         "goodsReceipt", "transfer", "usageImports", "usageDetail",
         "usageDailyMaterial", "usageDailyMenu",
         "stockOpname", "wasteRecords", "eodSnapshots", "brokenChickenRecords",
-        "cashHandover", "remittanceOfFund", "pettyCashUsage", "forecastOrders"
+        "cashHandover", "remittanceOfFund", "pettyCashUsage", "forecastOrders",
+        "hourlySales"
     ]);
 
     function currentOutletId() {

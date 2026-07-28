@@ -223,10 +223,35 @@ async function loadForDate(){
             toast("Data tanggal ini sudah ada, ditampilkan untuk diedit","success");
         } else {
             resetForm();
+            // Baru (belum pernah disimpan untuk tanggal ini) - isi
+            // otomatis Receipts dari total penggunaan Petty Cash pada
+            // tanggal yang sama (Menu Tracking Petty Cash). Kalau nanti
+            // Cash Handover ini diedit ulang (sudah ada datanya), nilai
+            // yang sudah tersimpan TIDAK ditimpa lagi oleh ini - biar
+            // tidak menghapus penyesuaian manual yang mungkin pernah
+            // dilakukan.
+            await autoFillPettyCashReceipts(date);
         }
     } catch(err){
         console.error(err);
         resetForm();
+    }
+}
+
+// Total semua penggunaan Petty Cash (RIWAYAT PENGGUNAAN di Tracking
+// Petty Cash) pada tanggal yang sama dengan Cash Handover ini.
+async function autoFillPettyCashReceipts(date){
+    try {
+        const usage = await InvDB.getAll("pettyCashUsage");
+        const total = usage
+            .filter(u => u.date === date)
+            .reduce((sum, u) => sum + (Number(u.amount) || 0), 0);
+        document.getElementById("pcReceipts").value = total;
+        recalc();
+    } catch(err){
+        console.error("Gagal ambil total Petty Cash:", err);
+        // Diamkan saja kalau gagal - biar user tetap bisa isi manual,
+        // tidak sampai bikin halaman Cash Handover error total.
     }
 }
 

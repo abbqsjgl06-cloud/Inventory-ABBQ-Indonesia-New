@@ -52,7 +52,12 @@
     }
 
     function render() {
-        document.getElementById("miniCalcDisplay").textContent = expression || "0";
+        const el = document.getElementById("miniCalcDisplay");
+        el.textContent = expression || "0";
+        // Selalu geser ke posisi paling akhir supaya angka yang baru
+        // diketik tetap kelihatan (bukan ketutupan di luar kotak) -
+        // berlaku di semua tempat kalkulator ini dipakai.
+        el.scrollLeft = el.scrollWidth;
     }
 
     function press(val) {

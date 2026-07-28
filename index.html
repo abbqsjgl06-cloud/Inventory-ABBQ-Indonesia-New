@@ -357,14 +357,14 @@
       <div class="cat-chevron">›</div>
     </button>
 
-    <a id="reportsCard" class="cat-card" href="reports/index.html" style="display:none;text-decoration:none;color:inherit;">
+    <button id="reportsCard" class="cat-card" onclick="showCategory('reports')" style="display:none;">
       <div class="cat-icon" style="background:#FBEFD1;">🌐</div>
       <div class="cat-body">
         <div class="cat-title">Reports</div>
         <div class="cat-desc">Rekap lintas outlet - semua outlet dalam satu tampilan</div>
       </div>
       <div class="cat-chevron">›</div>
-    </a>
+    </button>
 
     <button class="cat-card" onclick="showCategory('pengaturan')">
       <div class="cat-icon" style="background:var(--master-tint);">🗂️</div>
@@ -503,6 +503,43 @@
         <div class="chevron">›</div>
       </a>
 
+      <a class="menu-card accent-usage" href="hourly-sales/index.html">
+        <div class="icon-wrap icon-usage">⏱️</div>
+        <div class="card-body">
+          <div class="card-title">Hourly Sales Report</div>
+          <div class="card-desc">Import laporan penjualan per jam dari POS, lihat Sales/CC/Avg per jam per tanggal.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+    </nav>
+  </div>
+
+  <div class="category-section" id="cat-reports">
+    <div class="back-row">
+      <button class="back-btn-inline" onclick="backToCategories()">← Menu</button>
+    </div>
+    <div class="section-label">Reports (Admin &amp; Viewer)</div>
+    <nav class="menu">
+
+      <a class="menu-card accent-rekap" href="reports/index.html">
+        <div class="icon-wrap icon-rekap">🧾</div>
+        <div class="card-body">
+          <div class="card-title">Rekap Menu Semua Outlet</div>
+          <div class="card-desc">Qty menu terjual per outlet dalam satu tampilan, lengkap Total gabungan.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
+      <a class="menu-card accent-usage" href="hourly-sales/index.html">
+        <div class="icon-wrap icon-usage">⏱️</div>
+        <div class="card-body">
+          <div class="card-title">Hourly Sales Report</div>
+          <div class="card-desc">Sales/CC/Avg per jam. Pilih outlet tertentu atau "Semua Outlet" lewat pemilih outlet di kanan atas.</div>
+        </div>
+        <div class="chevron">›</div>
+      </a>
+
     </nav>
   </div>
 
@@ -542,7 +579,7 @@
 </footer>
 
 <script>
-  const CATEGORY_IDS = ["harian", "tutup", "laporan", "pengaturan"];
+  const CATEGORY_IDS = ["harian", "tutup", "laporan", "reports", "pengaturan"];
 
   function showCategory(id){
     document.getElementById("categoryHome").classList.add("hidden");
