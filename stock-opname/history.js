@@ -154,7 +154,7 @@ function renderHistory(data) {
                 <td>${pic}</td>
                 <td>${tanggal}</td>
                 <td>${jam}${isClosed ? `<span class="eod-badge">✓ End of Day</span>` : ""}</td>
-                <td><button class="btn-buka" onclick="bukaData(${item.id})">BUKA</button></td>
+                <td><button class="btn-buka" onclick="bukaData('${item.id}')">BUKA</button></td>
             </tr>
         `;
 
