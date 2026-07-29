@@ -10,6 +10,9 @@
 document.addEventListener("authReady", (e) => {
     const box = document.getElementById("adminUploadBox");
     if(box) box.style.display = (e.detail.role === "admin") ? "block" : "none";
+
+    const bulkBox = document.getElementById("adminBulkRangeBox");
+    if(bulkBox) bulkBox.style.display = (e.detail.role === "admin") ? "block" : "none";
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -17,7 +20,210 @@ document.addEventListener("DOMContentLoaded", () => {
     if(fileInput){
         fileInput.addEventListener("change", handleAdminStockUpload);
     }
+
+    const bulkFileInput = document.getElementById("adminBulkRangeFile");
+    if(bulkFileInput){
+        bulkFileInput.addEventListener("change", handleBulkRangeUpload);
+    }
 });
+
+/* ==========================================
+   UPLOAD BACKLOG BANYAK TANGGAL SEKALIGUS
+   Kolom file: Kode | Tanggal | Qty
+   Type (Daily/WM) ditentukan OTOMATIS per tanggal:
+     - Hari Minggu -> WM
+     - H-1 tanggal akhir bulan -> WM
+     - Tanggal akhir bulan -> WM
+     - Selain itu -> Daily
+   Kitchen/Frontliner ditentukan otomatis dari daftar
+   item mana yang memuat kode itu (utk Type tanggal itu).
+========================================== */
+
+function isLastDayOfMonth(date){
+    const next = new Date(date);
+    next.setUTCDate(date.getUTCDate() + 1);
+    return next.getUTCMonth() !== date.getUTCMonth();
+}
+
+function isDayBeforeLastDayOfMonth(date){
+    const next = new Date(date);
+    next.setUTCDate(date.getUTCDate() + 1);
+    return isLastDayOfMonth(next);
+}
+
+function determineSoType(date){
+    if(date.getUTCDay() === 0) return "WM";           // Minggu
+    if(isLastDayOfMonth(date)) return "WM";         // tanggal akhir bulan
+    if(isDayBeforeLastDayOfMonth(date)) return "WM"; // H-1 akhir bulan
+    return "Daily";
+}
+
+function parseBulkDate(value){
+    if(value === null || value === undefined || value === "") return null;
+
+    if(typeof value === "number"){
+        try {
+            const parsed = XLSX.SSF.parse_date_code(value);
+            if(parsed) return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+        } catch(e){ /* fall through */ }
+    }
+
+    if(typeof value === "string"){
+        const s = value.trim();
+        let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+        if(m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+        m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+        if(m) return new Date(Date.UTC(+m[3], +m[2]-1, +m[1]));
+        const native = new Date(s);
+        if(!isNaN(native)) return native;
+    }
+
+    return null;
+}
+
+function downloadBulkRangeTemplate(){
+    const rows = [
+        ["Kode", "Tanggal", "Qty"],
+        ["301640", "2026-07-12", 5],
+        ["301635", "2026-07-12", 3],
+        ["301640", "2026-07-13", 4]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template SO");
+    XLSX.writeFile(wb, "Template_Upload_SO_Multi_Tanggal.xlsx");
+}
+
+async function handleBulkRangeUpload(e){
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const resultEl = document.getElementById("adminBulkRangeResult");
+    const pic = document.getElementById("bulkRangePic").value.trim();
+
+    if(!pic){
+        resultEl.innerHTML = `<span style="color:#c0392b;">Isi PIC dulu sebelum upload.</span>`;
+        e.target.value = "";
+        return;
+    }
+
+    resultEl.textContent = "Memproses, mohon tunggu (bisa beberapa detik untuk banyak tanggal)...";
+
+    try {
+        // Muat 4 daftar item sekaligus (dipakai utk cocokkan kode & pisah Kitchen/Frontliner)
+        const [dailyKitchen, dailyFrontliner, wmKitchen, wmFrontliner, fileBuffer, existingSO] = await Promise.all([
+            fetch("database/daily_kitchen.json?v=" + Date.now()).then(r=>r.json()),
+            fetch("database/daily_frontliner.json?v=" + Date.now()).then(r=>r.json()),
+            fetch("database/wm_kitchen.json?v=" + Date.now()).then(r=>r.json()),
+            fetch("database/wm_frontliner.json?v=" + Date.now()).then(r=>r.json()),
+            file.arrayBuffer(),
+            InvDB.getAll("stockOpname")
+        ]);
+
+        const DB_BY_TYPE = {
+            Daily: { Kitchen: dailyKitchen, Frontliner: dailyFrontliner },
+            WM: { Kitchen: wmKitchen, Frontliner: wmFrontliner }
+        };
+
+        const wb = XLSX.read(new Uint8Array(fileBuffer), { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
+        // Kelompokkan qty per (tanggalStr, kode)
+        const qtyByDateCode = new Map(); // "2026-07-12" -> Map(kode -> qty)
+        let rowsRead = 0;
+
+        rows.forEach(row => {
+            const kode = row[0], tanggalRaw = row[1], qty = row[2];
+            if(kode === "" || kode === undefined || kode === null) return;
+            if(String(kode).toLowerCase() === "kode") return; // skip header
+
+            const d = parseBulkDate(tanggalRaw);
+            if(!d) return;
+            const dateStr = d.toISOString().slice(0,10);
+
+            if(!qtyByDateCode.has(dateStr)) qtyByDateCode.set(dateStr, new Map());
+            qtyByDateCode.get(dateStr).set(String(kode).trim(), Number(qty) || 0);
+            rowsRead++;
+        });
+
+        const dateStrs = Array.from(qtyByDateCode.keys()).sort();
+        if(dateStrs.length === 0){
+            resultEl.innerHTML = `<span style="color:#c0392b;">Tidak ada baris dengan tanggal yang terbaca. Cek kolom Tanggal di file.</span>`;
+            e.target.value = "";
+            return;
+        }
+
+        let created = 0, updated = 0;
+        const unmatchedByDate = [];
+        const summaryLines = [];
+
+        for(const dateStr of dateStrs){
+            const qtyMap = qtyByDateCode.get(dateStr);
+            const dateObj = new Date(dateStr + "T00:00:00Z");
+            const type = determineSoType(dateObj);
+
+            const usedCodes = new Set();
+
+            for(const kategori of ["Kitchen", "Frontliner"]){
+                const dbList = DB_BY_TYPE[type][kategori] || [];
+                let matched = 0;
+
+                const items = dbList.map(item => {
+                    const kode = String(item.kode).trim();
+                    const hasQty = qtyMap.has(kode);
+                    if(hasQty){ matched++; usedCodes.add(kode); }
+                    return {
+                        nomor: item.nomor,
+                        kode: item.kode,
+                        item: item.item,
+                        konv: item.konv,
+                        uom: item.uom,
+                        pcs_gr: hasQty ? qtyMap.get(kode) : 0
+                    };
+                });
+
+                if(matched === 0) continue; // tidak ada data utk kategori ini di tanggal ini, lewati
+
+                const existing = existingSO.find(s => s.tanggal === dateStr && s.kategori === kategori && s.type === type);
+
+                const data = {
+                    id: existing ? existing.id : String(Date.now()) + "_" + kategori + "_" + dateStr,
+                    pic,
+                    kategori,
+                    type,
+                    tanggal: dateStr,
+                    waktuInput: getWaktuInput(),
+                    items
+                };
+
+                await InvDB.put("stockOpname", data);
+                if(existing) updated++; else created++;
+
+                summaryLines.push(`${dateStr} (${type}) - ${kategori}: ${matched} item terisi${existing ? " [menimpa laporan lama]" : ""}`);
+            }
+
+            const unmatchedCodes = Array.from(qtyMap.keys()).filter(k => !usedCodes.has(k));
+            if(unmatchedCodes.length > 0){
+                unmatchedByDate.push(`${dateStr}: ${unmatchedCodes.length} kode tidak dikenali (${unmatchedCodes.slice(0,8).join(", ")}${unmatchedCodes.length>8?", ...":""})`);
+            }
+        }
+
+        let html = `✓ Selesai. ${rowsRead} baris diproses, ${dateStrs.length} tanggal, ${created} laporan baru, ${updated} laporan ditimpa.<br><br>`;
+        html += summaryLines.join("<br>");
+        if(unmatchedByDate.length > 0){
+            html += `<br><br><span style="color:#c0392b;">⚠ Kode tidak dikenali (tidak ada di daftar Kitchen/Frontliner manapun untuk type tanggal itu):<br>${unmatchedByDate.join("<br>")}</span>`;
+        }
+
+        resultEl.innerHTML = html;
+        e.target.value = "";
+
+    } catch(err){
+        console.error(err);
+        resultEl.innerHTML = `<span style="color:#c0392b;">Gagal upload: ${err.message || err}</span>`;
+        e.target.value = "";
+    }
+}
 
 function getDatabaseFileFor(kategori, type){
     if(kategori === "Kitchen" && type === "Daily") return "database/daily_kitchen.json";
