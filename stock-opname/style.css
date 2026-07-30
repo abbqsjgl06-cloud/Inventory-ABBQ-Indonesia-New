@@ -119,6 +119,8 @@ button:hover{
 .table-stock{
 
     width:100%;
+    max-width:560px;
+    margin:0 auto;
     table-layout:fixed;
 
     border-collapse:collapse;
@@ -171,7 +173,7 @@ button:hover{
 .table-stock th:nth-child(1), .table-stock td:nth-child(1){ width:22px; padding-left:2px; padding-right:2px; }
 .table-stock th:nth-child(2), .table-stock td:nth-child(2){ width:54px; padding-left:2px; padding-right:2px; }
 .table-stock th:nth-child(3), .table-stock td:nth-child(3){ text-align:left; width:auto; }
-.table-stock th:nth-child(4), .table-stock td:nth-child(4){ width:28px; padding-left:2px; padding-right:2px; }
+.table-stock th:nth-child(4), .table-stock td:nth-child(4){ width:32px; padding-left:2px; padding-right:2px; font-size:10px; white-space:nowrap; }
 .table-stock th:nth-child(5), .table-stock td:nth-child(5){ width:28px; padding-left:2px; padding-right:2px; }
 .table-stock th:nth-child(6), .table-stock td:nth-child(6){ width:62px; padding-left:2px; padding-right:2px; }
 
@@ -182,10 +184,32 @@ button:hover{
 .qty-input{
 
     width:52px;
+    font-size:13px;
+    padding:4px 2px;
 
     text-align:center;
 
 }
+
+.qty-with-calc{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+}
+.calc-btn{
+    flex:none;
+    width:26px;
+    height:26px;
+    border-radius:6px;
+    border:1px solid #ddd;
+    background:#fff;
+    font-size:14px;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+}
+.calc-btn:active{ background:#f1c40f; }
 
 /* =========================
    TABLE - PRODUCT PREPARATION (3 kolom: Kode, Nama, Qty)

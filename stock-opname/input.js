@@ -441,12 +441,15 @@ function renderTable(){
 
             <td>
 
-                <input
-                    type="number"
-                    class="qty-input"
-                    id="qty_${index}"
-                    min="0"
-                    value="0">
+                <div class="qty-with-calc">
+                    <input
+                        type="number"
+                        class="qty-input"
+                        id="qty_${index}"
+                        min="0"
+                        value="0">
+                    <button type="button" class="calc-btn" onclick="openCalcFor('qty_${index}')">🧮</button>
+                </div>
 
             </td>
 
