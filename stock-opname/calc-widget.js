@@ -36,19 +36,23 @@ function openCalcFor(targetInputId){
                     <button type="button" onclick="calcInput('7')">7</button>
                     <button type="button" onclick="calcInput('8')">8</button>
                     <button type="button" onclick="calcInput('9')">9</button>
-                    <button type="button" onclick="calcClear()" style="background:#FCEBE9;color:#C23B2E;">C</button>
+                    <button type="button" onclick="calcOp('÷')" style="background:#FFF3C4;">÷</button>
                     <button type="button" onclick="calcInput('4')">4</button>
                     <button type="button" onclick="calcInput('5')">5</button>
                     <button type="button" onclick="calcInput('6')">6</button>
-                    <button type="button" onclick="calcOp('-')" style="background:#FFF3C4;">−</button>
+                    <button type="button" onclick="calcOp('×')" style="background:#FFF3C4;">×</button>
                     <button type="button" onclick="calcInput('1')">1</button>
                     <button type="button" onclick="calcInput('2')">2</button>
                     <button type="button" onclick="calcInput('3')">3</button>
-                    <button type="button" onclick="calcOp('+')" style="background:#FFF3C4;">+</button>
+                    <button type="button" onclick="calcOp('-')" style="background:#FFF3C4;">−</button>
                     <button type="button" onclick="calcInput('0')">0</button>
                     <button type="button" onclick="calcInput('.')">.</button>
-                    <button type="button" onclick="calcBackspace()">⌫</button>
+                    <button type="button" onclick="calcOp('+')" style="background:#FFF3C4;">+</button>
                     <button type="button" onclick="calcEquals()" style="background:#FFD400;">=</button>
+                </div>
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <button type="button" onclick="calcClear()" style="flex:1;background:#FCEBE9;color:#C23B2E;">C</button>
+                    <button type="button" onclick="calcBackspace()" style="flex:1;">⌫</button>
                 </div>
                 <div style="display:flex;gap:8px;">
                     <button type="button" onclick="closeCalc()" style="flex:1;background:#eee;">Batal</button>
@@ -87,7 +91,8 @@ function closeCalc(){
 function updateCalcDisplay(){
     const display = document.getElementById("calcDisplay");
     if(!display) return;
-    const parts = CALC_EXPRESSION.map(p => typeof p === "number" ? fmtCalcNum(p) : (p === "+" ? "+" : "−"));
+    const opSymbol = { "+": "+", "-": "−", "×": "×", "÷": "÷" };
+    const parts = CALC_EXPRESSION.map(p => typeof p === "number" ? fmtCalcNum(p) : opSymbol[p]);
     let text = parts.join(" ") + (CALC_EXPRESSION.length > 0 && CALC_CURRENT_NUMBER ? " " : "") + CALC_CURRENT_NUMBER;
     if(!text.trim()) text = "0";
     display.textContent = text;
@@ -138,10 +143,26 @@ function calcComputeTotal(){
     if(CALC_CURRENT_NUMBER !== "") expr.push(Number(CALC_CURRENT_NUMBER));
     if(expr.length === 0) return 0;
 
-    let total = typeof expr[0] === "number" ? expr[0] : 0;
+    // Tahap 1: kerjakan × dan ÷ dulu (kiri ke kanan) - urutan operasi
+    // matematika standar, supaya "2 + 3 × 4" = 14, bukan 20.
+    const pass1 = [expr[0]];
     for(let i = 1; i < expr.length; i += 2){
         const op = expr[i];
         const val = Number(expr[i+1]) || 0;
+        if(op === "×"){
+            pass1[pass1.length-1] = pass1[pass1.length-1] * val;
+        } else if(op === "÷"){
+            pass1[pass1.length-1] = val !== 0 ? pass1[pass1.length-1] / val : 0;
+        } else {
+            pass1.push(op, val);
+        }
+    }
+
+    // Tahap 2: jumlahkan/kurangkan sisanya
+    let total = typeof pass1[0] === "number" ? pass1[0] : 0;
+    for(let i = 1; i < pass1.length; i += 2){
+        const op = pass1[i];
+        const val = Number(pass1[i+1]) || 0;
         if(op === "+") total += val;
         else if(op === "-") total -= val;
     }

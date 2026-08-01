@@ -419,11 +419,57 @@ async function loadDatabase(){
 // TABEL
 // =====================================
 
+let SORT_COLUMN = null; // 'kode' | 'item' | null
+let SORT_DIR = 1;
+
+function sortTable(column){
+    if(SORT_COLUMN === column){
+        SORT_DIR = -SORT_DIR;
+    } else {
+        SORT_COLUMN = column;
+        SORT_DIR = 1;
+    }
+    renderTable();
+}
+
 function renderTable(){
+
+    // Simpan dulu qty yang SUDAH DIKETIK user sebelum re-render (search/sort
+    // membangun ulang tabelnya) - supaya angka yang sudah diisi tidak hilang.
+    const currentValues = {};
+    databaseData.forEach((item, index) => {
+        const el = document.getElementById("qty_" + index);
+        if(el) currentValues[index] = el.value;
+    });
+
+    const key = (document.getElementById("searchItem")?.value || "").toLowerCase();
+    let view = databaseData.map((item, originalIndex) => ({ item, originalIndex }));
+
+    if(key){
+        view = view.filter(v =>
+            String(v.item.kode).toLowerCase().includes(key) ||
+            String(v.item.item).toLowerCase().includes(key)
+        );
+    }
+
+    if(SORT_COLUMN === "kode"){
+        view.sort((a,b) => (Number(a.item.kode) || 0) - (Number(b.item.kode) || 0));
+        if(SORT_DIR === -1) view.reverse();
+    } else if(SORT_COLUMN === "item"){
+        view.sort((a,b) => String(a.item.item).localeCompare(String(b.item.item)));
+        if(SORT_DIR === -1) view.reverse();
+    }
+
+    const arrowKode = document.getElementById("sortArrowKode");
+    const arrowItem = document.getElementById("sortArrowItem");
+    if(arrowKode) arrowKode.textContent = SORT_COLUMN === "kode" ? (SORT_DIR === 1 ? "▲" : "▼") : "";
+    if(arrowItem) arrowItem.textContent = SORT_COLUMN === "item" ? (SORT_DIR === 1 ? "▲" : "▼") : "";
 
     let html = "";
 
-    databaseData.forEach((item,index)=>{
+    view.forEach(({ item, originalIndex }) => {
+
+        const val = currentValues[originalIndex] !== undefined ? currentValues[originalIndex] : "0";
 
         html += `
 
@@ -445,10 +491,10 @@ function renderTable(){
                     <input
                         type="number"
                         class="qty-input"
-                        id="qty_${index}"
+                        id="qty_${originalIndex}"
                         min="0"
-                        value="0">
-                    <button type="button" class="calc-btn" onclick="openCalcFor('qty_${index}')">🧮</button>
+                        value="${val}">
+                    <button type="button" class="calc-btn" onclick="openCalcFor('qty_${originalIndex}')">🧮</button>
                 </div>
 
             </td>
@@ -458,6 +504,10 @@ function renderTable(){
         `;
 
     });
+
+    if(view.length === 0){
+        html = `<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">Tidak ada item ditemukan</td></tr>`;
+    }
 
     document.getElementById(
         "tableBody"
@@ -497,6 +547,11 @@ async function simpanData(){
 
     databaseData.forEach((item,index)=>{
 
+        // Kalau baris ini lagi disembunyikan (difilter pencarian), inputnya
+        // tidak ada di DOM - pakai qty 0 (karena memang belum pernah diisi
+        // di sesi input baru ini), bukan ikut nge-crash.
+        const inputEl = document.getElementById("qty_"+index);
+
         items.push({
 
             nomor:item.nomor,
@@ -509,13 +564,7 @@ async function simpanData(){
 
             uom:item.uom,
 
-            pcs_gr:Number(
-
-                document.getElementById(
-                    "qty_"+index
-                ).value
-
-            )
+            pcs_gr: inputEl ? Number(inputEl.value) : 0
 
         });
 
@@ -675,10 +724,4 @@ function tampilNotif(
 }
 
 
-function filterTable(){
- const key=document.getElementById('searchItem').value.toLowerCase();
- document.querySelectorAll('#tableBody tr').forEach(tr=>{
-  const txt=tr.innerText.toLowerCase();
-  tr.style.display=txt.includes(key)?'':'none';
- });
-}
+

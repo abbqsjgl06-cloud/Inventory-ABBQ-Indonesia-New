@@ -33,6 +33,8 @@
 
         </h2>
 
+        <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px;margin:15px 0;font-size:16px;border:2px solid #f1c40f;border-radius:8px;">
+
         <div class="table-scroll-wrap">
         <table class="table-stock">
 
@@ -42,9 +44,9 @@
 
                     <th>No</th>
 
-                    <th>Kode</th>
+                    <th style="cursor:pointer;" onclick="sortTable('kode')">Kode <span id="sortArrowKode"></span></th>
 
-                    <th>Item</th>
+                    <th style="cursor:pointer;" onclick="sortTable('item')">Item <span id="sortArrowItem"></span></th>
 
                     <th>Konv</th>
 
@@ -64,6 +66,27 @@
         </div>
 
         <br>
+
+        <div class="panel" style="border:2px solid #2E7D4F;border-radius:12px;padding:15px;margin-bottom:10px;">
+            <h3 style="margin-top:0;color:#2E7D4F;">🍳 Product Preparation</h3>
+            <p style="font-size:12px;color:#666;">
+                Kalau ada tambahan porsi produk yang di-prepare untuk laporan ini, input di sini.
+                Sistem otomatis menghitung kebutuhan bahan baku dari resep (BOM) dan
+                MENAMBAHKANNYA ke laporan ini begitu ditekan <b>UPDATE DATA</b> di bawah.
+            </p>
+            <div class="table-scroll-wrap">
+                <table class="table-prep">
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Qty Porsi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prepTableBody"></tbody>
+                </table>
+            </div>
+        </div>
 
         <button onclick="updateData()">
 
@@ -109,8 +132,8 @@
     <script src="libraries/xlsx.full.min.js"></script>
 
     <!-- DETAIL -->
-    <script src="calc-widget.js?v=1"></script>
-    <script src="detail_history.js?v=2"></script>
+    <script src="calc-widget.js?v=2"></script>
+    <script src="detail_history.js?v=3"></script>
 
 </body>
 
