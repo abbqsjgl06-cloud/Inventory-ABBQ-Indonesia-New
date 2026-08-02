@@ -404,12 +404,12 @@ function getSelectedReimburseRows(){
     return REIMBURSE_FILTERED.filter(u => ids.has(u.id));
 }
 
-function exportReimburse() {
+async function exportReimburse() {
     if (REIMBURSE_FILTERED.length === 0) {
         toast("Tampilkan riwayat reimburse dulu sebelum export", "error");
         return;
     }
-    if (typeof XLSX === "undefined") {
+    if (typeof ExcelJS === "undefined") {
         toast("Library Excel belum dimuat", "error");
         return;
     }
@@ -420,22 +420,73 @@ function exportReimburse() {
         return;
     }
 
-    const rows = selected.map(u => ({
-        "Tgl Transaksi": u.date,
-        "Tgl Reimburse": u.reimbursedDate || "-",
-        "Kategori": u.category,
-        "Deskripsi": u.description,
-        "Amount": Number(u.amount) || 0
-    }));
+    try {
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet("Riwayat Reimburse");
+        ws.columns = [
+            { header: "Tgl Transaksi", key: "date", width: 14 },
+            { header: "Tgl Reimburse", key: "reimbursedDate", width: 14 },
+            { header: "Kategori", key: "category", width: 18 },
+            { header: "Deskripsi", key: "description", width: 30 },
+            { header: "Amount", key: "amount", width: 16 },
+            { header: "Foto", key: "photo", width: 20 }
+        ];
+        ws.getRow(1).font = { bold: true };
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Riwayat Reimburse");
+        const sorted = [...selected].sort((a, b) => (a.reimbursedDate || "").localeCompare(b.reimbursedDate || ""));
 
-    const from = document.getElementById("reimbFrom").value || "semua";
-    const to = document.getElementById("reimbTo").value || "tanggal";
-    XLSX.writeFile(wb, `Reimburse-PettyCash_${from}_sd_${to}.xlsx`);
-    toast(`✓ ${rows.length} baris reimburse berhasil di-export`, "success");
+        sorted.forEach((u, idx) => {
+            const rowIndex = idx + 2;
+            const row = ws.addRow({
+                date: u.date,
+                reimbursedDate: u.reimbursedDate || "-",
+                category: u.category,
+                description: u.description,
+                amount: Number(u.amount) || 0,
+                photo: u.photo ? "" : "Tidak ada foto"
+            });
+            row.alignment = { vertical: "middle", wrapText: true };
+
+            if (u.photo) {
+                try {
+                    const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(u.photo);
+                    if (match) {
+                        const ext = match[1] === "jpg" ? "jpeg" : match[1];
+                        const imageId = wb.addImage({ base64: u.photo, extension: ext });
+                        ws.addImage(imageId, {
+                            tl: { col: 5, row: rowIndex - 1 },
+                            ext: { width: 100, height: 100 },
+                            editAs: "oneCell"
+                        });
+                        row.height = 80;
+                    }
+                } catch (imgErr) {
+                    console.error("Gagal menyisipkan foto baris", rowIndex, imgErr);
+                }
+            }
+        });
+
+        const totalRow = ws.addRow({
+            date: "", reimbursedDate: "", category: "", description: "TOTAL",
+            amount: sorted.reduce((s, u) => s + (Number(u.amount) || 0), 0), photo: ""
+        });
+        totalRow.font = { bold: true };
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const from = document.getElementById("reimbFrom").value || "semua";
+        const to = document.getElementById("reimbTo").value || "tanggal";
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `Reimburse-PettyCash_${from}_sd_${to}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+
+        toast(`✓ ${sorted.length} baris reimburse berhasil di-export, foto disertakan`, "success");
+    } catch (err) {
+        console.error(err);
+        toast("Gagal export: " + (err.message || "error"), "error");
+    }
 }
 
 async function loadReimburse() {

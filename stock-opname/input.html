@@ -67,7 +67,7 @@
 
         <div style="position:relative;margin:15px 0;">
             <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px 40px 12px 12px;font-size:16px;border:2px solid #f1c40f;border-radius:8px;box-sizing:border-box;">
-            <button type="button" onclick="document.getElementById('searchItem').value='';renderTable();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:20px;color:#888;cursor:pointer;padding:4px 8px;">✕</button>
+            <button type="button" onclick="document.getElementById('searchItem').value='';renderTable();" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-width:32px;left:auto;background:none;border:none;font-size:18px;line-height:1;color:#888;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;">✕</button>
         </div>
 
         <button type="button" id="jumpToAdminManage" onclick="jumpToAdminManage()" style="display:none;width:100%;background:#1C1B19;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;margin-bottom:12px;">
@@ -181,7 +181,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
     <script src="../shared/firebase-config.js"></script>
 <script>window.AUTH_GUARD_DEPTH = 1;</script>
-<script src="../shared/auth-guard.js?v=44"></script>
+<script src="../shared/auth-guard.js?v=45"></script>
 <script src="../shared/chat-widget.js?v=2"></script>
     <script src="../shared/inv-db.js?v=38"></script>
     <script src="../shared/ui-dialog.js?v=31"></script>

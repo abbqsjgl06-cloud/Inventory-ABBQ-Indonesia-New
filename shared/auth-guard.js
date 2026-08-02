@@ -131,11 +131,37 @@ document.addEventListener("DOMContentLoaded", function () {
    termasuk yang belum ada sekarang / dibuat nanti.
 ========================================== */
 function _computeFloatingTopOffset() {
-    var refEl = document.querySelector(".topbar") || document.querySelector(".back-btn") || document.querySelector(".biz-date-badge");
-    if (refEl) {
-        var rect = refEl.getBoundingClientRect();
-        if (rect.bottom > 0) return Math.round(rect.bottom + 8) + "px";
-    }
+    // Cari SEMUA elemen "chrome" kecil yang biasa nangkring di pojok atas
+    // (tombol back/Menu Utama, tombol Logout, badge Business Date) dan
+    // pakai bottom PALING BAWAH di antara mereka. Sebelumnya kode ini
+    // cuma ambil elemen PERTAMA yang cocok - kalau itu .topbar (kontainer
+    // besar yang juga memuat logo & judul), hasilnya kejauhan ke bawah
+    // (numpuk sama menu). Kalau di halaman itu tidak ada satupun elemen
+    // yang match (mis. tombol back cuma <a> polos tanpa class), hasilnya
+    // fallback ke 14px dan malah numpuk SAMA tombol itu. Sekarang dicek
+    // langsung dari kandidat elemen kecil yang benar-benar dekat pojok
+    // atas (top < 100px), bukan dari kontainer besar.
+    var selector = [
+        ".back-btn", ".biz-date-badge", ".back-btn-inline",
+        "a[href='../index.html']", "a[href='index.html']",
+        "button[onclick*='authGuardLogout']", "button[onclick*='Logout']"
+    ].join(",");
+
+    var maxBottom = 0;
+    document.querySelectorAll(selector).forEach(function (el) {
+        var cs = window.getComputedStyle(el);
+        if (cs.display === "none" || cs.visibility === "hidden") return;
+        var rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return;
+        // Hanya elemen yang memang nangkring dekat pojok atas layar -
+        // ini menyaring elemen non-fixed/non-absolute yang kebetulan
+        // ke-select tapi posisinya di tengah dokumen.
+        if (rect.top >= 0 && rect.top < 100 && rect.bottom > maxBottom) {
+            maxBottom = rect.bottom;
+        }
+    });
+
+    if (maxBottom > 0) return Math.round(maxBottom + 8) + "px";
     return "14px";
 }
 

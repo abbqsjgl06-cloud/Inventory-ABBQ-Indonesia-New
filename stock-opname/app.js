@@ -110,12 +110,15 @@ async function handleBulkRangeUpload(e){
     resultEl.textContent = "Memproses, mohon tunggu (bisa beberapa detik untuk banyak tanggal)...";
 
     try {
-        // Muat 4 daftar item sekaligus (dipakai utk cocokkan kode & pisah Kitchen/Frontliner)
+        // Muat 4 daftar item sekaligus (dipakai utk cocokkan kode & pisah Kitchen/Frontliner).
+        // Pakai daftar LIVE dari Firestore (sama seperti input manual) - bukan
+        // langsung file JSON statis - supaya item yang sudah ditambahkan admin
+        // lewat "Kelola Daftar Item" ikut terbaca saat upload Excel.
         const [dailyKitchen, dailyFrontliner, wmKitchen, wmFrontliner, fileBuffer, existingSO] = await Promise.all([
-            fetch("database/daily_kitchen.json?v=" + Date.now()).then(r=>r.json()),
-            fetch("database/daily_frontliner.json?v=" + Date.now()).then(r=>r.json()),
-            fetch("database/wm_kitchen.json?v=" + Date.now()).then(r=>r.json()),
-            fetch("database/wm_frontliner.json?v=" + Date.now()).then(r=>r.json()),
+            getLiveItemList("Kitchen", "Daily"),
+            getLiveItemList("Frontliner", "Daily"),
+            getLiveItemList("Kitchen", "WM"),
+            getLiveItemList("Frontliner", "WM"),
             file.arrayBuffer(),
             InvDB.getAll("stockOpname")
         ]);
@@ -233,6 +236,43 @@ function getDatabaseFileFor(kategori, type){
     return null;
 }
 
+function getListIdFor(kategori, type){
+    if(kategori === "Kitchen" && type === "Daily") return "kitchen_daily";
+    if(kategori === "Frontliner" && type === "Daily") return "frontliner_daily";
+    if(kategori === "Kitchen" && type === "WM") return "kitchen_wm";
+    if(kategori === "Frontliner" && type === "WM") return "frontliner_wm";
+    return null;
+}
+
+/* ==========================================
+   Ambil daftar item YANG SAMA dengan yang dipakai input manual
+   (stock-opname/input.js -> loadDatabase()): utamakan dokumen
+   Firestore "stockOpnameLists" (ini yang ke-update kalau admin
+   tambah/hapus item lewat "Kelola Daftar Item"), dan file JSON
+   statis di /database hanya dipakai sebagai fallback/seed awal
+   kalau dokumen Firestore-nya belum pernah dibuat.
+   Sebelumnya upload Excel (single maupun banyak tanggal) langsung
+   fetch file JSON statis - jadi item yang ditambahkan admin setelah
+   rilis awal tidak pernah kebaca saat upload, walau item itu sudah
+   muncul normal di form input manual.
+========================================== */
+async function getLiveItemList(kategori, type){
+    const listId = getListIdFor(kategori, type);
+    const staticFile = getDatabaseFileFor(kategori, type);
+    if(!listId || !staticFile) return null;
+
+    try {
+        const doc = await InvDB.get("stockOpnameLists", listId);
+        if(doc && Array.isArray(doc.items) && doc.items.length > 0) return doc.items;
+    } catch(e){
+        console.error("Gagal ambil daftar item dari server, coba fallback file statis:", e);
+    }
+
+    const res = await fetch(staticFile + "?v=" + Date.now());
+    if(!res.ok) throw new Error("Database item tidak ditemukan");
+    return res.json();
+}
+
 async function handleAdminStockUpload(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -250,8 +290,8 @@ async function handleAdminStockUpload(e){
         return;
     }
 
-    const databaseFile = getDatabaseFileFor(kategori, type);
-    if(!databaseFile){
+    const listId = getListIdFor(kategori, type);
+    if(!listId){
         resultEl.innerHTML = `<span style="color:#c0392b;">Kombinasi Kategori + Type tidak dikenali.</span>`;
         e.target.value = "";
         return;
@@ -261,10 +301,7 @@ async function handleAdminStockUpload(e){
 
     try {
         const [dbRes, fileBuffer] = await Promise.all([
-            fetch(databaseFile + "?v=" + Date.now()).then(r => {
-                if(!r.ok) throw new Error("Database item tidak ditemukan");
-                return r.json();
-            }),
+            getLiveItemList(kategori, type),
             file.arrayBuffer()
         ]);
 
