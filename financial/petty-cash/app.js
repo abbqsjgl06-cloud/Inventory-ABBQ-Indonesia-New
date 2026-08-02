@@ -388,6 +388,22 @@ async function reimburseSelected() {
     }
 }
 
+function toggleAllReimburseCheck(masterCheckbox){
+    document.querySelectorAll(".reimb-check").forEach(cb => { cb.checked = masterCheckbox.checked; });
+}
+
+function updateReimburseSelectAllState(){
+    const boxes = document.querySelectorAll(".reimb-check");
+    const selectAll = document.getElementById("reimbSelectAll");
+    if(!selectAll || boxes.length === 0) return;
+    selectAll.checked = [...boxes].every(cb => cb.checked);
+}
+
+function getSelectedReimburseRows(){
+    const ids = new Set([...document.querySelectorAll(".reimb-check:checked")].map(cb => cb.value));
+    return REIMBURSE_FILTERED.filter(u => ids.has(u.id));
+}
+
 function exportReimburse() {
     if (REIMBURSE_FILTERED.length === 0) {
         toast("Tampilkan riwayat reimburse dulu sebelum export", "error");
@@ -398,7 +414,13 @@ function exportReimburse() {
         return;
     }
 
-    const rows = REIMBURSE_FILTERED.map(u => ({
+    const selected = getSelectedReimburseRows();
+    if (selected.length === 0) {
+        toast("Centang minimal 1 baris untuk di-export (atau centang \"pilih semua\" di header tabel)", "error");
+        return;
+    }
+
+    const rows = selected.map(u => ({
         "Tgl Transaksi": u.date,
         "Tgl Reimburse": u.reimbursedDate || "-",
         "Kategori": u.category,
@@ -440,9 +462,12 @@ async function loadReimburse() {
 
         const totalRange = REIMBURSE_FILTERED.reduce((s, u) => s + (Number(u.amount) || 0), 0);
         totalLine.textContent = `Total reimburse pada rentang ini: ${rupiah(totalRange)}`;
+        const selectAllBox = document.getElementById("reimbSelectAll");
+        if(selectAllBox) selectAllBox.checked = false;
 
         body.innerHTML = REIMBURSE_FILTERED.map(u => `
             <tr>
+                <td><input type="checkbox" class="reimb-check" value="${u.id}" onchange="updateReimburseSelectAllState()"></td>
                 <td>${u.date}</td>
                 <td>${u.reimbursedDate || "-"}</td>
                 <td>${u.category}</td>

@@ -215,9 +215,15 @@ async function deleteMenuItem(code){
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-    USAGE_DAILY_MENU = await InvDB.getAll("usageDailyMenu");
-    buildIndex();
-    await loadCuratedMenuList();
+    try {
+        USAGE_DAILY_MENU = await InvDB.getAll("usageDailyMenu");
+        buildIndex();
+        await loadCuratedMenuList();
+    } catch(err){
+        console.error("Gagal memuat data awal Rekap Menu:", err);
+        toast("Gagal memuat data (kemungkinan masalah izin akses Firestore). Cek console / hubungi Admin sistem.", "error");
+        return;
+    }
 
     const end = new Date();
     const start = new Date();

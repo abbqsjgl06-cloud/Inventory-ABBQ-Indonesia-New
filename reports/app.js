@@ -11,7 +11,11 @@
    yang dipakai Rekap Menu per-outlet, supaya konsisten.
 ========================================== */
 
-const CURATED_MENU_LIST = [
+// Dipakai HANYA sebagai seed awal kalau collection rekapMenuItems di
+// Firestore masih kosong (lihat loadCuratedMenuList di bawah) - supaya
+// konsisten dengan Rekap Menu per-outlet, yang sekarang jadi "sumber
+// kebenaran" daftar menu ini lewat panel Kelola Daftar Menu (Admin).
+const SEED_DEFAULT_MENU_LIST = [
     { category: 'Voucher', code: "5222008", name: 'Buy 1 Get 1 Perkedel' },
     { category: 'Voucher', code: "5223003", name: 'Free Sambal Jeruk' },
     { category: 'Menu Paket', code: "5121009", name: 'ABBQ SPESIAL' },
@@ -80,6 +84,26 @@ const CURATED_MENU_LIST = [
     { category: 'Kerupuk', code: "4231003", name: 'EMPING' }
 ];
 
+let CURATED_MENU_LIST = []; // dimuat dari Firestore "rekapMenuItems" - sama seperti Rekap Menu per-outlet
+
+// Sumbernya SAMA dengan Rekap Menu per-outlet ("Kelola Daftar Menu"),
+// jadi kalau Admin tambah/hapus item di sana, otomatis ikut berubah
+// di sini juga tanpa perlu edit dobel.
+async function loadCuratedMenuList(){
+    let rows = await InvDB.getAll("rekapMenuItems");
+    if(rows.length === 0){
+        // Kalau collection-nya masih kosong (belum pernah dibuka lewat
+        // Rekap Menu per-outlet sama sekali), seed dari daftar bawaan
+        // supaya Reports tidak ikut kosong.
+        const seedRows = SEED_DEFAULT_MENU_LIST.map((item, idx) => ({
+            code: item.code, name: item.name, category: item.category, order: idx
+        }));
+        await InvDB.bulkPut("rekapMenuItems", seedRows);
+        rows = seedRows;
+    }
+    CURATED_MENU_LIST = rows;
+}
+
 let OUTLETS = [];                     // [{id, name}, ...] terurut sesuai urutan custom di bawah
 let USAGE_DAILY_MENU = [];            // semua outlet, mentah
 let DAILY_BY_MENU_CODE = new Map();   // menu_code -> Map(outletId -> qty) untuk rentang aktif
@@ -113,7 +137,14 @@ document.addEventListener("authReady", async (e) => {
     }
     document.getElementById("reportContent").style.display = "block";
 
-    OUTLETS = (await InvDB.getAll("outlets")).sort(sortOutletsCustomOrder);
+    try {
+        OUTLETS = (await InvDB.getAll("outlets")).sort(sortOutletsCustomOrder);
+        await loadCuratedMenuList();
+    } catch(err){
+        console.error("Gagal memuat data awal Reports:", err);
+        toast("Gagal memuat data (kemungkinan masalah izin akses Firestore). Cek console / hubungi Admin sistem.", "error");
+        return;
+    }
 
     // Ambil usageDailyMenu LINTAS SEMUA OUTLET - bukan cuma outlet yang
     // lagi aktif di pemilih outlet. InvDB.getAll() otomatis menyaring

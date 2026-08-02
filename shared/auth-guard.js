@@ -119,6 +119,27 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 /* ==========================================
+   Menghitung posisi "top" yang aman untuk elemen fixed (outlet
+   switcher & user badge) supaya TIDAK numpuk sama tombol back (←)
+   atau badge Business Date di halaman manapun. Sebelumnya offset-nya
+   dipatok angka tetap (14px) dan cuma ngecek ada-tidaknya
+   .biz-date-badge - itu yang bikin di halaman-halaman ber-".topbar"
+   (hampir semua modul), pill ini numpuk di atas tombol back karena
+   posisi tombol back yang sebenarnya tidak pernah diukur.
+   Sekarang diukur langsung dari elemen yang benar-benar ada di
+   halaman itu (kalau ada), jadi otomatis aman di halaman manapun,
+   termasuk yang belum ada sekarang / dibuat nanti.
+========================================== */
+function _computeFloatingTopOffset() {
+    var refEl = document.querySelector(".topbar") || document.querySelector(".back-btn") || document.querySelector(".biz-date-badge");
+    if (refEl) {
+        var rect = refEl.getBoundingClientRect();
+        if (rect.bottom > 0) return Math.round(rect.bottom + 8) + "px";
+    }
+    return "14px";
+}
+
+/* ==========================================
    Admin outlet switcher: dropdown untuk admin
    memilih "lihat sebagai outlet mana". Pilihan
    "Semua Outlet" (default) = tidak difilter sama
@@ -133,8 +154,7 @@ function _injectOutletSwitcher(currentOutletId) {
             snap.forEach(function (d) { outlets.push(d.data()); });
             if (outlets.length === 0) return; // no outlets configured yet
 
-            var hasBizDateBadge = !!document.querySelector(".biz-date-badge");
-            var topOffset = hasBizDateBadge ? "62px" : "14px";
+            var topOffset = _computeFloatingTopOffset();
 
             var wrap = document.createElement("div");
             wrap.id = "outletSwitcher";
@@ -188,10 +208,10 @@ function _injectOutletSwitcher(currentOutletId) {
 function _injectUserBadge(email, role, outletId) {
     if (document.getElementById("authUserBadge")) return;
 
-    // Turunkan posisi badge kalau halaman index utama sudah punya
-    // badge Business Date di pojok kanan atas, supaya tidak tumpuk.
-    var hasBizDateBadge = !!document.querySelector(".biz-date-badge");
-    var topOffset = hasBizDateBadge ? "62px" : "14px";
+    // Ukur posisi aman dari elemen yang benar-benar ada di halaman ini
+    // (lihat _computeFloatingTopOffset) - supaya tidak tumpuk dengan
+    // header/tombol back di halaman manapun.
+    var topOffset = _computeFloatingTopOffset();
 
     var isAdmin = role === "admin";
     var isViewer = role === "viewer";
