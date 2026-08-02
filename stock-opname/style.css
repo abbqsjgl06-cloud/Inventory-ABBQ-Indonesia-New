@@ -121,8 +121,8 @@ select:focus{
 button{
     width:100%;
     padding:13px 18px;
-    background:var(--accent);
-    color:#fff;
+    background:#FFD400;
+    color:#1C1B19;
     border:none;
     border-radius:12px;
     font-size:15px;
@@ -333,8 +333,8 @@ button:active{
 }
 
 .history-table .btn-buka{
-    background:var(--accent);
-    color:#fff;
+    background:#f1c40f;
+    color:#1C1B19;
     border:none;
     border-radius:8px;
     padding:7px 14px;

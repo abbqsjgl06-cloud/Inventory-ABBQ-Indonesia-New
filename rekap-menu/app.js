@@ -435,7 +435,32 @@ function renderReport(){
     document.getElementById("summaryDays").textContent = dates.length;
     document.getElementById("summaryItems").textContent = visibleRows.length;
     document.getElementById("summaryTotal").textContent = grandTotal.toLocaleString("id-ID");
+
+    _syncStickyLeft();
 }
+
+/* ==========================================
+   CSS position:sticky (bahkan dengan prefix -webkit-sticky) ternyata
+   tidak selalu didukung di WebView yang dipakai untuk buka aplikasi
+   ini - kolom "Menu" & baris judul kategori (Voucher, Menu Paket, dst)
+   jadi ikut tergeser saat tabel digeser ke samping, bukannya tetap
+   nempel di kiri. Sebagai gantinya, posisi "nempel di kiri" ini
+   disimulasikan manual pakai transform, mengikuti scrollLeft dari
+   .table-wrap - cara ini tidak bergantung sama sekali pada dukungan
+   sticky di browser/WebView manapun.
+========================================== */
+function _syncStickyLeft(){
+    const wrap = document.getElementById("reportTableWrap");
+    if(!wrap) return;
+    const x = wrap.scrollLeft;
+    document.querySelectorAll("#reportHead th:first-child, #reportBody td:first-child, #reportBody .cat-header-row td.cat-header-cell")
+        .forEach(el => { el.style.transform = x > 0 ? `translateX(${x}px)` : ""; });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const wrap = document.getElementById("reportTableWrap");
+    if(wrap) wrap.addEventListener("scroll", _syncStickyLeft, { passive: true });
+});
 
 function exportExcel(){
     if(!LAST_RESULT){ toast("Belum ada data untuk diexport","error"); return; }

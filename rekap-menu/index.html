@@ -26,8 +26,7 @@
   #reportHead th:first-child, #reportBody td:first-child{
     white-space:normal;
     max-width:140px;
-    position:-webkit-sticky;position:sticky;
-    left:0;
+    position:relative;
     background:var(--card,#fff);
     z-index:5;
   }
@@ -41,14 +40,10 @@
      melebar wajar mengikuti isi kolom dan tetap bisa digeser. */
   .table-wrap table{ min-width:0; }
 
-  /* Baris judul kategori ("Voucher", "Menu Paket", dst) sekarang
-     di-sticky dengan class KHUSUS (bukan ikut aturan td:first-child
-     yang lebarnya dibatasi 140px utk kolom Menu) - jadi label kategori
-     tetap kelihatan nempel di kiri saat tabel digeser ke kanan, tanpa
-     kepotong/tertimpa lagi seperti masalah sebelumnya. */
+  /* Baris judul kategori ("Voucher", "Menu Paket", dst) juga ikut
+     "nempel" di kiri layar - lihat .cat-header-cell di bawah. */
   #reportBody .cat-header-row td.cat-header-cell{
-    position:-webkit-sticky;position:sticky;
-    left:0;
+    position:relative;
     max-width:none;
     white-space:nowrap;
     background:var(--accent-tint);
@@ -163,7 +158,7 @@
     </div>
   </div>
 
-  <div class="table-wrap">
+  <div class="table-wrap" id="reportTableWrap">
     <table>
       <thead><tr id="reportHead"></tr></thead>
       <tbody id="reportBody"></tbody>
@@ -184,6 +179,6 @@
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=38"></script>
 <script src="../shared/ui-dialog.js?v=31"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
