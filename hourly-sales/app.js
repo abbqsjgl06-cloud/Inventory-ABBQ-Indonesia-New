@@ -265,6 +265,8 @@ function toggleSummary(){
 // tanggal itu) + baris Total paling bawah menjumlah seluruh rentang
 // yang lagi difilter - buat lihat cepat total penjualan tanpa harus
 // buka tabel per jam satu-satu.
+const BULAN_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
 function renderSummary(dates, byDate){
     const area = document.getElementById("summaryArea");
 
@@ -273,19 +275,41 @@ function renderSummary(dates, byDate){
         return;
     }
 
+    // Kelompokkan tanggal per bulan+tahun - supaya tabel cuma
+    // menampilkan ANGKA TANGGALNYA saja, dengan judul bulan+tahun
+    // 1x di atas tiap kelompok (bukan diulang di tiap baris). Kalau
+    // rentangnya lintas bulan, otomatis muncul beberapa judul bulan.
+    const groups = []; // [{ label: "Juli 2026", dates: [...] }]
+    dates.forEach(date => {
+        const d = new Date(date + "T00:00:00");
+        const label = `${BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+        let group = groups[groups.length - 1];
+        if(!group || group.label !== label){
+            group = { label, dates: [] };
+            groups.push(group);
+        }
+        group.dates.push(date);
+    });
+
     let grandSales = 0, grandQty = 0;
-    const rows = dates.map(date => {
-        const hourMap = byDate.get(date);
-        let sales = 0, qty = 0;
-        hourMap.forEach(v => { sales += v.sales; qty += v.qty; });
-        grandSales += sales; grandQty += qty;
-        const avg = qty > 0 ? Math.round(sales / qty) : 0;
-        return `<tr>
-            <td>${date}</td>
-            <td class="num">${sales.toLocaleString("id-ID")}</td>
-            <td class="num">${qty.toLocaleString("id-ID")}</td>
-            <td class="num">${avg.toLocaleString("id-ID")}</td>
-        </tr>`;
+
+    const bodyHtml = groups.map(group => {
+        const groupRows = group.dates.map(date => {
+            const hourMap = byDate.get(date);
+            let sales = 0, qty = 0;
+            hourMap.forEach(v => { sales += v.sales; qty += v.qty; });
+            grandSales += sales; grandQty += qty;
+            const avg = qty > 0 ? Math.round(sales / qty) : 0;
+            const day = Number(date.slice(8, 10));
+            return `<tr>
+                <td>${day}</td>
+                <td class="num">${sales.toLocaleString("id-ID")}</td>
+                <td class="num">${qty.toLocaleString("id-ID")}</td>
+                <td class="num">${avg.toLocaleString("id-ID")}</td>
+            </tr>`;
+        }).join("");
+
+        return `<tr><td colspan="4" style="font-weight:800;background:var(--paper,#f4f4f0);">${group.label}</td></tr>${groupRows}`;
     }).join("");
 
     const grandAvg = grandQty > 0 ? Math.round(grandSales / grandQty) : 0;
@@ -297,7 +321,7 @@ function renderSummary(dates, byDate){
                 <table>
                     <thead><tr><th>Tanggal</th><th class="num">Sales</th><th class="num">CC</th><th class="num">Avg</th></tr></thead>
                     <tbody>
-                        ${rows}
+                        ${bodyHtml}
                         <tr class="total-row">
                             <td>Total (${dates.length} hari)</td>
                             <td class="num">${grandSales.toLocaleString("id-ID")}</td>

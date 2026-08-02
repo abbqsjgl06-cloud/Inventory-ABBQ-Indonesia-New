@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="style.css?v=3">
+        href="style.css?v=4">
 
 </head>
 
@@ -33,7 +33,10 @@
 
         </h2>
 
-        <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px;margin:15px 0;font-size:16px;border:2px solid #f1c40f;border-radius:8px;">
+        <div style="position:relative;margin:15px 0;">
+            <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px 40px 12px 12px;font-size:16px;border:2px solid #f1c40f;border-radius:8px;box-sizing:border-box;">
+            <button type="button" onclick="document.getElementById('searchItem').value='';renderTable();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:20px;color:#888;cursor:pointer;padding:4px 8px;">✕</button>
+        </div>
 
         <div class="table-scroll-wrap">
         <table class="table-stock">

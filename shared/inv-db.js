@@ -38,7 +38,8 @@ const InvDB = (() => {
         eodSnapshots: "id",
         accounts: "email",
         outlets: "id",
-        supplierItems: "code"
+        supplierItems: "code",
+        rekapMenuItems: "code"
     };
 
     // Collections whose documents get tagged & filtered by outlet.

@@ -18,7 +18,7 @@ body{
     width:100%;
     max-width:900px;
     margin:auto;
-    padding:20px;
+    padding:56px 20px 20px;
 }
 
 /* =========================
@@ -430,7 +430,7 @@ button:hover{
 
 .container{
 
-    padding:12px;
+    padding:56px 12px 12px;
 
 }
 

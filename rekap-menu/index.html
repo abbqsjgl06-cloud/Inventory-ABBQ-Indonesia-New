@@ -7,7 +7,7 @@
 <link rel="icon" href="../logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared/inv-style.css?v=31">
+<link rel="stylesheet" href="../shared/inv-style.css?v=41">
 <style>
   :root{ --accent:#7A4FBF; --accent-tint:#EFE9FB; }
   thead th{background:var(--accent-tint);position:sticky;top:0;}
@@ -41,11 +41,19 @@
      melebar wajar mengikuti isi kolom dan tetap bisa digeser. */
   .table-wrap table{ min-width:0; }
 
-  /* Baris judul kategori TIDAK di-sticky (posisi normal ikut geser
-     bareng tabel) - sebelumnya sticky+colspan disini suka bentrok
-     sama kolom "Menu" yang juga sticky, bikin sebagian teks kategori
-     ketutupan/hilang saat tabel digeser ke kanan. */
-  #reportBody .cat-header-row td{ position:static !important; }
+  /* Baris judul kategori ("Voucher", "Menu Paket", dst) sekarang
+     di-sticky dengan class KHUSUS (bukan ikut aturan td:first-child
+     yang lebarnya dibatasi 140px utk kolom Menu) - jadi label kategori
+     tetap kelihatan nempel di kiri saat tabel digeser ke kanan, tanpa
+     kepotong/tertimpa lagi seperti masalah sebelumnya. */
+  #reportBody .cat-header-row td.cat-header-cell{
+    position:sticky;
+    left:0;
+    max-width:none;
+    white-space:nowrap;
+    background:var(--accent-tint);
+    z-index:4;
+  }
 </style>
 </head>
 <body>
@@ -59,6 +67,46 @@
 </header>
 
 <main>
+
+  <div class="panel admin-only" id="panelKelolaMenu" style="display:none;border:2px solid #7A4FBF;">
+    <div class="panel-title">🛠 Kelola Daftar Menu (Admin)</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Tambah atau hapus menu dari daftar Rekap Menu di bawah, berdasarkan kode item &amp; nama
+      deskripsi. Kategori yang sudah ada bisa dipakai lagi (ketik persis sama), atau ketik nama
+      kategori baru untuk membuat kelompok baru.
+    </p>
+    <div class="field-row">
+      <div class="field">
+        <label>Kategori</label>
+        <input type="text" id="newMenuItemCategory" placeholder="mis. Menu Paket" list="categoryOptions">
+        <datalist id="categoryOptions">
+          <option value="Voucher"><option value="Menu Paket"><option value="Menu (in Paket)">
+          <option value="Pendamping Paket (P)"><option value="Menu Tambahan (Only Alacarte)">
+          <option value="Minuman"><option value="Dessert"><option value="Makanan Ringan"><option value="Kerupuk">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>Kode Item</label>
+        <input type="text" id="newMenuItemCode" placeholder="mis. 1121009">
+      </div>
+    </div>
+    <div class="field">
+      <label>Nama Deskripsi</label>
+      <input type="text" id="newMenuItemName" placeholder="mis. ABBQ SPESIAL">
+    </div>
+    <button class="btn btn-primary" onclick="addMenuItem()">+ Tambah ke Daftar</button>
+
+    <div class="field" style="margin-top:14px;">
+      <label>Cari di Daftar</label>
+      <input type="text" id="menuItemSearch" placeholder="Cari kategori/kode/nama..." oninput="renderAdminMenuItemList()">
+    </div>
+    <div class="table-wrap" style="max-height:300px;">
+      <table>
+        <thead><tr><th>Kategori</th><th>Kode</th><th>Nama</th><th></th></tr></thead>
+        <tbody id="menuItemAdminBody"></tbody>
+      </table>
+    </div>
+  </div>
 
   <div class="panel">
     <div class="panel-title">Filter Rekap Menu</div>
@@ -122,6 +170,7 @@
 <script src="../shared/auth-guard.js?v=44"></script>
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=38"></script>
-<script src="app.js?v=2"></script>
+<script src="../shared/ui-dialog.js?v=31"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

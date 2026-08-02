@@ -388,6 +388,34 @@ async function reimburseSelected() {
     }
 }
 
+function exportReimburse() {
+    if (REIMBURSE_FILTERED.length === 0) {
+        toast("Tampilkan riwayat reimburse dulu sebelum export", "error");
+        return;
+    }
+    if (typeof XLSX === "undefined") {
+        toast("Library Excel belum dimuat", "error");
+        return;
+    }
+
+    const rows = REIMBURSE_FILTERED.map(u => ({
+        "Tgl Transaksi": u.date,
+        "Tgl Reimburse": u.reimbursedDate || "-",
+        "Kategori": u.category,
+        "Deskripsi": u.description,
+        "Amount": Number(u.amount) || 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Riwayat Reimburse");
+
+    const from = document.getElementById("reimbFrom").value || "semua";
+    const to = document.getElementById("reimbTo").value || "tanggal";
+    XLSX.writeFile(wb, `Reimburse-PettyCash_${from}_sd_${to}.xlsx`);
+    toast(`✓ ${rows.length} baris reimburse berhasil di-export`, "success");
+}
+
 async function loadReimburse() {
     const from = document.getElementById("reimbFrom").value;
     const to = document.getElementById("reimbTo").value;

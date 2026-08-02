@@ -7,7 +7,7 @@
 <link rel="icon" href="../../logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../../shared/inv-style.css?v=35">
+<link rel="stylesheet" href="../../shared/inv-style.css?v=41">
 <style>
   :root{ --accent:#0D7A5F; --accent-tint:#E2F5EF; }
   thead th{background:var(--accent-tint);}
@@ -178,6 +178,7 @@
     </div>
     <button class="btn btn-secondary" onclick="loadReimburse()">🔍 Tampilkan Riwayat Reimburse</button>
     <div style="font-size:13px;font-weight:700;margin-top:10px;" id="reimbTotalLine"></div>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="exportReimburse()">⬇ Export Reimburse ke Excel</button>
     <div class="table-wrap pc-reimb-table-wrap" style="margin-top:10px;">
       <table>
         <thead><tr><th>Tgl Transaksi</th><th>Tgl Reimburse</th><th>Kategori</th><th>Deskripsi</th><th class="num">Amount</th><th></th></tr></thead>
@@ -190,6 +191,7 @@
 
 <div class="notif" id="notif"></div>
 
+<script src="../../shared/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -200,6 +202,6 @@
 <script src="../../shared/inv-db.js?v=38"></script>
 <script src="../../shared/ui-dialog.js?v=36"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

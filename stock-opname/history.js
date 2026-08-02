@@ -195,8 +195,9 @@ function updateSelectedDeleteCount(){
 }
 
 // Export beberapa riwayat Stock Opname terpilih sekaligus jadi 1 file
-// Excel - tiap sesi jadi 1 sheet sendiri (pakai library & format kolom
-// "Kode" yang sama seperti export 1 sesi di detail_history.js).
+// Excel, DIGABUNG jadi 1 SHEET saja (bukan 1 sheet per sesi) - kolom
+// Kategori/Type/Tanggal/PIC ditambahkan di tiap baris supaya tetap
+// jelas baris itu asalnya dari sesi yang mana.
 function exportSelectedHistory(){
     const ids = Array.from(document.querySelectorAll(".history-check:checked")).map(el => el.value);
 
@@ -211,43 +212,35 @@ function exportSelectedHistory(){
     }
 
     const selected = allData.filter(item => ids.includes(String(item.id)));
-    const workbook = XLSX.utils.book_new();
-    const usedSheetNames = new Set();
+    const combinedRows = [];
 
     selected.forEach(session => {
-        const excelData = (session.items || []).map(item => ({
-            "No": item.nomor,
-            "Kode": (/^[0-9]+$/.test(String(item.kode).trim()) ? Number(item.kode) : item.kode),
-            "Item": item.item,
-            "Konv": item.konv,
-            "UOM": item.uom,
-            "PCS/Gr": item.pcs_gr
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-        // Nama sheet Excel maksimal 31 karakter & tidak boleh duplikat/
-        // ada karakter terlarang ( \ / ? * [ ] ).
-        let sheetName = `${session.kategori || "SO"}-${session.type || ""}-${session.tanggal || ""}`
-            .replace(/[\\/?*\[\]:]/g, "-")
-            .slice(0, 31) || "Sheet";
-        let finalName = sheetName;
-        let dupCounter = 1;
-        while(usedSheetNames.has(finalName)){
-            const suffix = ` (${++dupCounter})`;
-            finalName = sheetName.slice(0, 31 - suffix.length) + suffix;
-        }
-        usedSheetNames.add(finalName);
-
-        XLSX.utils.book_append_sheet(workbook, worksheet, finalName);
+        (session.items || []).forEach(item => {
+            combinedRows.push({
+                "Tanggal": session.tanggal,
+                "Kategori": session.kategori,
+                "Type": session.type,
+                "PIC": session.pic,
+                "No": item.nomor,
+                "Kode": (/^[0-9]+$/.test(String(item.kode).trim()) ? Number(item.kode) : item.kode),
+                "Item": item.item,
+                "Konv": item.konv,
+                "UOM": item.uom,
+                "PCS/Gr": item.pcs_gr
+            });
+        });
     });
+
+    const worksheet = XLSX.utils.json_to_sheet(combinedRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Stock Opname");
 
     const start = document.getElementById("startDate").value || "semua";
     const end = document.getElementById("endDate").value || "tanggal";
     const namaFile = `Riwayat-StockOpname_${ids.length}-sesi_${start}_sd_${end}.xlsx`;
 
     XLSX.writeFile(workbook, namaFile);
-    tampilNotif(`✓ ${ids.length} riwayat berhasil di-export`, "success");
+    tampilNotif(`✓ ${ids.length} riwayat (${combinedRows.length} baris) berhasil di-export ke 1 sheet`, "success");
 }
 
 async function deleteSelectedHistory(){

@@ -13,7 +13,11 @@
    rekap menu Excel milik outlet ini.
 ========================================== */
 
-const CURATED_MENU_LIST = [
+// Dipakai HANYA sekali sebagai data awal (seed) kalau koleksi
+// Firestore "rekapMenuItems" masih kosong - setelah itu daftar yang
+// dipakai adalah CURATED_MENU_LIST (dari Firestore, bisa diedit Admin
+// lewat panel "Kelola Daftar Menu" di bawah).
+const SEED_DEFAULT_MENU_LIST = [
     { category: 'Voucher', code: "5222008", name: 'Buy 1 Get 1 Perkedel' },
     { category: 'Voucher', code: "5223003", name: 'Free Sambal Jeruk' },
     { category: 'Menu Paket', code: "5121009", name: 'ABBQ SPESIAL' },
@@ -86,9 +90,134 @@ let USAGE_DAILY_MENU = [];
 let DAILY_BY_MENU_CODE = new Map();   // menu_code -> Map(date -> qty)
 let LAST_RESULT = null;               // { dates:[...], rows:[{category,code,name, byDate:{}, total}] }
 
+// Urutan kategori tampil (dari struktur rekap menu asli outlet ini).
+// Kategori baru yang belum ada di daftar ini (kalau Admin bikin
+// kategori baru lewat panel Kelola) ditaruh di ujung, urut abjad.
+const CATEGORY_ORDER = [
+    "Voucher", "Menu Paket", "Menu (in Paket)", "Pendamping Paket (P)",
+    "Menu Tambahan (Only Alacarte)", "Minuman", "Dessert", "Makanan Ringan", "Kerupuk"
+];
+
+let CURATED_MENU_LIST = []; // dimuat dari Firestore "rekapMenuItems"
+let IS_ADMIN = false;
+
+function sortCuratedList(list){
+    return list.slice().sort((a,b) => {
+        const ia = CATEGORY_ORDER.indexOf(a.category);
+        const ib = CATEGORY_ORDER.indexOf(b.category);
+        const posA = ia === -1 ? CATEGORY_ORDER.length : ia;
+        const posB = ib === -1 ? CATEGORY_ORDER.length : ib;
+        if(posA !== posB) return posA - posB;
+        if(a.category !== b.category) return a.category.localeCompare(b.category);
+        return (Number(a.order) || 0) - (Number(b.order) || 0);
+    });
+}
+
+async function loadCuratedMenuList(){
+    let rows = await InvDB.getAll("rekapMenuItems");
+
+    if(rows.length === 0){
+        // Koleksi masih kosong - migrasi 1x dari daftar bawaan supaya
+        // tidak hilang, sekaligus jadi titik awal yang bisa diedit Admin.
+        const seedRows = SEED_DEFAULT_MENU_LIST.map((item, idx) => ({
+            code: item.code, name: item.name, category: item.category, order: idx
+        }));
+        await InvDB.bulkPut("rekapMenuItems", seedRows);
+        rows = seedRows;
+    }
+
+    CURATED_MENU_LIST = sortCuratedList(rows);
+}
+
+document.addEventListener("authReady", (e) => {
+    IS_ADMIN = e.detail.role === "admin";
+    const panel = document.getElementById("panelKelolaMenu");
+    if(panel) panel.style.display = IS_ADMIN ? "block" : "none";
+    if(IS_ADMIN) renderAdminMenuItemList();
+});
+
+/* ======================================
+   KELOLA DAFTAR MENU (Admin) - tambah/hapus
+   item dari daftar terkurasi, berdasarkan
+   kode item & nama deskripsi.
+====================================== */
+
+function renderAdminMenuItemList(){
+    const body = document.getElementById("menuItemAdminBody");
+    if(!body) return;
+
+    const key = (document.getElementById("menuItemSearch")?.value || "").toLowerCase();
+    const filtered = CURATED_MENU_LIST.filter(item =>
+        !key || item.code.toLowerCase().includes(key) || item.name.toLowerCase().includes(key) || item.category.toLowerCase().includes(key)
+    );
+
+    if(filtered.length === 0){
+        body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:16px;">Tidak ada item ditemukan</td></tr>`;
+        return;
+    }
+
+    body.innerHTML = filtered.map(item => `
+        <tr>
+            <td>${item.category}</td>
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td><button type="button" onclick="deleteMenuItem('${item.code}')" style="color:#C23B2E;background:none;border:1px solid #C23B2E;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Hapus</button></td>
+        </tr>
+    `).join("");
+}
+
+async function addMenuItem(){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengubah daftar ini","error"); return; }
+
+    const categoryInput = document.getElementById("newMenuItemCategory").value.trim();
+    const code = document.getElementById("newMenuItemCode").value.trim();
+    const name = document.getElementById("newMenuItemName").value.trim();
+
+    if(!categoryInput || !code || !name){ toast("Isi Kategori, Kode, dan Nama dulu","error"); return; }
+
+    if(CURATED_MENU_LIST.some(item => item.code === code)){
+        toast("Kode ini sudah ada di daftar - hapus dulu kalau mau ganti","error");
+        return;
+    }
+
+    const maxOrderInCategory = Math.max(-1, ...CURATED_MENU_LIST.filter(i => i.category === categoryInput).map(i => Number(i.order) || 0));
+
+    try {
+        const newItem = { code, name, category: categoryInput, order: maxOrderInCategory + 1 };
+        await InvDB.put("rekapMenuItems", newItem);
+        CURATED_MENU_LIST = sortCuratedList([...CURATED_MENU_LIST, newItem]);
+
+        document.getElementById("newMenuItemCode").value = "";
+        document.getElementById("newMenuItemName").value = "";
+        renderAdminMenuItemList();
+        toast(`✓ "${name}" ditambahkan ke kategori "${categoryInput}"`, "success");
+    } catch(err){
+        console.error("Gagal tambah item rekap menu:", err);
+        toast("Gagal simpan. Cek koneksi internet.", "error");
+    }
+}
+
+async function deleteMenuItem(code){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengubah daftar ini","error"); return; }
+    const item = CURATED_MENU_LIST.find(i => i.code === code);
+    if(!item) return;
+    if(!await uiConfirm(`Hapus "${item.name}" (${code}) dari daftar Rekap Menu?`)) return;
+
+    try {
+        await InvDB.remove("rekapMenuItems", code);
+        CURATED_MENU_LIST = CURATED_MENU_LIST.filter(i => i.code !== code);
+        renderAdminMenuItemList();
+        toast("✓ Item dihapus dari daftar", "success");
+    } catch(err){
+        console.error("Gagal hapus item rekap menu:", err);
+        toast("Gagal hapus. Cek koneksi internet.", "error");
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     USAGE_DAILY_MENU = await InvDB.getAll("usageDailyMenu");
     buildIndex();
+    await loadCuratedMenuList();
 
     const end = new Date();
     const start = new Date();
@@ -198,7 +327,7 @@ function renderReport(){
             flushCategorySubtotal();
             currentCat = r.category;
             catByDate = {}; dates.forEach(d => catByDate[d] = 0); catTotal = 0;
-            html += `<tr class="cat-header-row"><td colspan="${colCount}" style="font-weight:800;background:var(--accent-tint);">${currentCat}</td></tr>`;
+            html += `<tr class="cat-header-row"><td colspan="${colCount}" class="cat-header-cell" style="font-weight:800;background:var(--accent-tint);">${currentCat}</td></tr>`;
         }
         html += `<tr><td>${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.code}</small></td>` +
             dates.map(d => `<td class="num">${r.byDate[d] || ""}</td>`).join("") +

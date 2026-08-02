@@ -279,6 +279,44 @@ async function persistCurrentList(){
     await InvDB.put("stockOpnameLists", { id: CURRENT_LIST_ID, items: databaseData });
 }
 
+// Merambatkan perubahan daftar item ke RIWAYAT yang sudah tersimpan
+// (kategori+type yang sama). "add" -> tambahkan baris baru (qty 0) ke
+// riwayat yang belum punya kode ini. "edit" -> perbarui nama/uom/konv
+// di riwayat yang SUDAH punya kode ini (qty yang sudah diisi tidak
+// disentuh). SENGAJA tidak ada propagasi utk hapus - menghapus qty
+// yang sudah dihitung dari riwayat lama terlalu berisiko, jadi hapus
+// cuma memengaruhi daftar/template ke depan saja.
+async function propagateItemChangeToHistory(action, item){
+    try {
+        const all = await InvDB.getAll("stockOpname");
+        const matching = all.filter(s => s.kategori === stockMeta.kategori && s.type === stockMeta.type);
+
+        let touched = 0;
+
+        for(const record of matching){
+            const idx = (record.items || []).findIndex(i => String(i.kode).trim() === String(item.kode).trim());
+
+            if(action === "add" && idx === -1){
+                const nextNomor = record.items.length > 0 ? Math.max(...record.items.map(i=>Number(i.nomor)||0)) + 1 : 1;
+                record.items.push({ nomor: nextNomor, kode: item.kode, item: item.item, konv: item.konv, uom: item.uom, pcs_gr: 0 });
+                await InvDB.put("stockOpname", record);
+                touched++;
+            } else if(action === "edit" && idx !== -1){
+                record.items[idx].item = item.item;
+                record.items[idx].uom = item.uom;
+                record.items[idx].konv = item.konv;
+                await InvDB.put("stockOpname", record);
+                touched++;
+            }
+        }
+
+        return touched;
+    } catch(err){
+        console.error("Gagal merambatkan perubahan ke riwayat:", err);
+        return 0;
+    }
+}
+
 async function addAdminItem(){
     const kode = document.getElementById("newItemKode").value.trim();
     const nama = document.getElementById("newItemNama").value.trim();
@@ -296,7 +334,8 @@ async function addAdminItem(){
     }
 
     const nextNomor = databaseData.length > 0 ? Math.max(...databaseData.map(i=>Number(i.nomor)||0)) + 1 : 1;
-    databaseData.push({ nomor: nextNomor, kode, item: nama, konv, uom });
+    const newItem = { nomor: nextNomor, kode, item: nama, konv, uom };
+    databaseData.push(newItem);
 
     try {
         await persistCurrentList();
@@ -306,7 +345,9 @@ async function addAdminItem(){
         document.getElementById("newItemKonv").value = "";
         renderTable();
         renderAdminItemList();
-        tampilNotif("✓ Item ditambahkan", "success");
+
+        const touched = await propagateItemChangeToHistory("add", newItem);
+        tampilNotif(`✓ Item ditambahkan${touched > 0 ? ` - otomatis ditambahkan juga ke ${touched} riwayat ${stockMeta.kategori}/${stockMeta.type} yang sudah tersimpan` : ""}`, "success");
     } catch(err){
         console.error(err);
         tampilNotif("Gagal simpan ke server", "error");
@@ -332,7 +373,9 @@ async function editAdminItem(idx){
         await persistCurrentList();
         renderTable();
         renderAdminItemList();
-        tampilNotif("✓ Item diperbarui", "success");
+
+        const touched = await propagateItemChangeToHistory("edit", item);
+        tampilNotif(`✓ Item diperbarui${touched > 0 ? ` - otomatis diperbarui juga di ${touched} riwayat ${stockMeta.kategori}/${stockMeta.type} yang sudah tersimpan` : ""}`, "success");
     } catch(err){
         console.error(err);
         tampilNotif("Gagal simpan ke server", "error");
