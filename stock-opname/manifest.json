@@ -8,8 +8,8 @@
     "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
-    "background_color": "#ffffff",
-    "theme_color": "#FFD400",
+    "background_color": "#FAF7F2",
+    "theme_color": "#1C1B19",
     "icons": [
         {
             "src": "abbq_logo.png",

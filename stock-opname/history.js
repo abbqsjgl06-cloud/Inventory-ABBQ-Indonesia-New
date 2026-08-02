@@ -12,7 +12,10 @@ let EOD_SESSION_IDS = new Set();
 document.addEventListener("authReady", (e) => {
     IS_ADMIN = e.detail.role === "admin";
     IS_VIEWER = e.detail.role === "viewer";
-    CAN_SELECT = IS_ADMIN || IS_VIEWER;
+    // Export tersedia utk SEMUA role yang login (admin, viewer, maupun
+    // user biasa) - sebelumnya cuma admin/viewer. Hapus data tetap
+    // admin-only (lihat delBtn di bawah).
+    CAN_SELECT = true;
     const bar = document.getElementById("bulkActionBar");
     if(bar) bar.style.display = CAN_SELECT ? "flex" : "none";
     const delBtn = document.getElementById("deleteSelectedBtn");
@@ -165,7 +168,7 @@ function renderHistory(data) {
             <table class="history-table">
                 <thead>
                     <tr>
-                        <th></th>
+                        <th>${CAN_SELECT ? `<input type="checkbox" id="selectAllHistory" onchange="toggleSelectAllHistory(this)" title="Pilih semua">` : ""}</th>
                         <th>No</th>
                         <th>Kategori</th>
                         <th>Tipe</th>
@@ -184,6 +187,11 @@ function renderHistory(data) {
 
     updateSelectedDeleteCount();
 
+}
+
+function toggleSelectAllHistory(checkbox){
+    document.querySelectorAll(".history-check").forEach(el => { el.checked = checkbox.checked; });
+    updateSelectedDeleteCount();
 }
 
 function updateSelectedDeleteCount(){

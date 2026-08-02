@@ -11,9 +11,11 @@
 
     <title>Input Stock Opname ABBQ</title>
 
-    <link
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link
         rel="stylesheet"
-        href="style.css?v=4">
+        href="style.css?v=5">
 
 </head>
 
@@ -33,14 +35,14 @@
 
         </h2>
 
-        <div id="adminUploadBox" style="display:none;background:#FFF7E0;border:2px dashed #f1c40f;border-radius:10px;padding:14px;margin:15px 0;">
+        <div id="adminUploadBox" style="display:none;background:#EFEBE3;border:2px dashed #C9C2B4;border-radius:10px;padding:14px;margin:15px 0;">
             <b>📥 Upload Qty dari Excel (Admin)</b>
             <p style="font-size:12px;color:#666;margin:6px 0 10px;">File Excel 2 kolom: <b>Kode</b>, <b>Qty</b>. Cocok untuk mengejar backlog input tanggal lama.</p>
             <input type="file" id="adminUploadFile" accept=".xlsx,.xls,.csv">
             <div id="adminUploadResult" style="font-size:13px;margin-top:8px;"></div>
         </div>
 
-        <div id="adminManageBox" style="display:none;background:#FFF7E0;border:2px dashed #f1c40f;border-radius:10px;padding:14px;margin:15px 0;">
+        <div id="adminManageBox" style="display:none;background:#EFEBE3;border:2px dashed #C9C2B4;border-radius:10px;padding:14px;margin:15px 0;">
             <button type="button" onclick="toggleAdminManage()" style="width:100%;background:#1C1B19;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">
                 🛠 Kelola Daftar Item (Admin) <span id="adminManageArrow">▾</span>
             </button>
@@ -66,7 +68,7 @@
         </div>
 
         <div style="position:relative;margin:15px 0;">
-            <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px 40px 12px 12px;font-size:16px;border:2px solid #f1c40f;border-radius:8px;box-sizing:border-box;">
+            <input type="text" id="searchItem" placeholder="🔍 Cari item atau kode..." oninput="renderTable()" style="width:100%;padding:12px 40px 12px 12px;font-size:16px;border:2px solid #E7E2D9;border-radius:8px;box-sizing:border-box;">
             <button type="button" onclick="document.getElementById('searchItem').value='';renderTable();" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-width:32px;left:auto;background:none;border:none;font-size:18px;line-height:1;color:#888;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;">✕</button>
         </div>
 

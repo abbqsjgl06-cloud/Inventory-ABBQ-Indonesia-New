@@ -111,6 +111,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (typeof window.initChatWidget === "function") {
                     window.initChatWidget(user.email, window.CURRENT_ROLE, window.CURRENT_OUTLET_ID);
                 }
+                _reserveTopChromeSpace();
+                setTimeout(_reserveTopChromeSpace, 400); // jaga-jaga kalau webfont/layout baru settle belakangan
                 document.dispatchEvent(new CustomEvent("authReady", {
                     detail: { role: window.CURRENT_ROLE, email: user.email, outletId: window.CURRENT_OUTLET_ID }
                 }));
@@ -166,11 +168,33 @@ function _computeFloatingTopOffset() {
 }
 
 /* ==========================================
-   Admin outlet switcher: dropdown untuk admin
-   memilih "lihat sebagai outlet mana". Pilihan
-   "Semua Outlet" (default) = tidak difilter sama
-   sekali, admin lihat data gabungan semua outlet.
+   Di halaman yang pakai header bersama (.topbar, position:fixed -
+   lihat shared/inv-style.css), outlet switcher & user badge nangkring
+   TEPAT DI BAWAH topbar itu (lihat _computeFloatingTopOffset). Tapi
+   <main> cuma diberi padding-top sebesar tinggi topbar SAJA (lewat
+   CSS statis) - tidak tahu-menahu soal switcher/badge yang nempel
+   setelahnya. Kalau switcher/badge kebetulan lagi tinggi (mis. badge
+   akun non-admin ada baris outlet tambahan, atau nama outlet
+   panjang), baris pertama konten ketiban.
+   Fungsi ini mengukur tinggi ASLI ketiganya sekali setelah semua
+   selesai di-render, dan menimpa padding-top <main> supaya PAS -
+   otomatis benar di halaman manapun tanpa perlu angka tetap.
 ========================================== */
+function _reserveTopChromeSpace() {
+    var main = document.querySelector("main");
+    if (!main) return;
+
+    var topbar = document.querySelector(".topbar");
+    if (!topbar || window.getComputedStyle(topbar).position !== "fixed") return;
+
+    var maxBottom = 0;
+    [topbar, document.getElementById("outletSwitcher"), document.getElementById("authUserBadge")].forEach(function (el) {
+        if (!el) return;
+        var rect = el.getBoundingClientRect();
+        if (rect.bottom > maxBottom) maxBottom = rect.bottom;
+    });
+    if (maxBottom > 0) main.style.paddingTop = Math.round(maxBottom + 16) + "px";
+}
 function _injectOutletSwitcher(currentOutletId) {
     return firebase.firestore().collection("outlets").get()
         .then(function (snap) {

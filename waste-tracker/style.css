@@ -744,7 +744,7 @@ border-collapse:collapse;
 font-size:13px;
 }
 .historyTable thead th{
-position:sticky;
+position:-webkit-sticky;position:sticky;
 top:0;
 background:#fafafa;
 text-align:left;

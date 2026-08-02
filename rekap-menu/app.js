@@ -214,6 +214,84 @@ async function deleteMenuItem(code){
     }
 }
 
+/* ======================================
+   UBAH LEWAT EXCEL (Admin) - download daftar yang sedang aktif
+   (atau template kosong kalau belum ada isinya), lalu upload lagi
+   file yang sudah diedit untuk MENGGANTI SELURUH daftar sekaligus.
+   Lebih cepat dibanding tambah/hapus satu-satu lewat form di atas
+   kalau perubahannya banyak (mis. re-strukturisasi kategori).
+====================================== */
+function downloadMenuItemTemplate(){
+    const rows = CURATED_MENU_LIST.length > 0
+        ? CURATED_MENU_LIST.map(item => ({ Kategori: item.category, Kode: item.code, Nama: item.name }))
+        : [{ Kategori: "Menu Paket", Kode: "1121009", Nama: "Contoh Menu" }];
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 26 }, { wch: 14 }, { wch: 30 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Daftar Menu");
+    XLSX.writeFile(wb, `Template-RekapMenu-${toLocalDateStr(new Date())}.xlsx`);
+}
+
+async function handleMenuItemUpload(e){
+    if(!IS_ADMIN){ toast("Hanya Admin yang boleh mengubah daftar ini","error"); return; }
+    const file = e.target.files[0];
+    if(!file) return;
+    const resultEl = document.getElementById("menuItemUploadResult");
+    resultEl.textContent = "Memproses...";
+
+    try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        if(rows.length === 0) throw new Error("File kosong");
+
+        const parsed = [];
+        const seenCodes = new Set();
+        let skipped = 0;
+
+        rows.forEach(row => {
+            const category = String(row.Kategori ?? row.kategori ?? "").trim();
+            const code = String(row.Kode ?? row.kode ?? "").trim();
+            const name = String(row.Nama ?? row.nama ?? "").trim();
+            if(!category || !code || !name || seenCodes.has(code)){ skipped++; return; }
+            seenCodes.add(code);
+            parsed.push({ category, code, name });
+        });
+
+        if(parsed.length === 0) throw new Error("Tidak ada baris valid (Kategori/Kode/Nama wajib diisi)");
+
+        // Urutan (order) ditentukan dari urutan baris DALAM kategori yang
+        // sama di file, jadi admin bisa atur urutan cukup dengan menyusun
+        // ulang baris di Excel.
+        const orderCounter = {};
+        const newItems = parsed.map(item => {
+            const o = orderCounter[item.category] || 0;
+            orderCounter[item.category] = o + 1;
+            return { code: item.code, name: item.name, category: item.category, order: o };
+        });
+
+        const ok = await uiConfirm(`Ganti SELURUH daftar Rekap Menu dengan ${newItems.length} item dari file ini? Daftar lama (${CURATED_MENU_LIST.length} item) akan dihapus.`);
+        if(!ok){ e.target.value = ""; resultEl.textContent = ""; return; }
+
+        await InvDB.clear("rekapMenuItems");
+        await InvDB.bulkPut("rekapMenuItems", newItems);
+        CURATED_MENU_LIST = sortCuratedList(newItems);
+        renderAdminMenuItemList();
+
+        resultEl.innerHTML = `✓ Daftar diganti: ${newItems.length} item tersimpan${skipped > 0 ? `, ${skipped} baris dilewati (data tidak lengkap/kode dobel)` : ""}.`;
+        toast(`✓ Daftar Rekap Menu diganti (${newItems.length} item)`, "success");
+    } catch(err){
+        console.error("Gagal upload daftar rekap menu:", err);
+        resultEl.innerHTML = `<span style="color:#C23B2E;">Gagal: ${err.message || "error"}</span>`;
+        toast("Gagal upload. Cek format file.", "error");
+    } finally {
+        e.target.value = "";
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     try {
         USAGE_DAILY_MENU = await InvDB.getAll("usageDailyMenu");
