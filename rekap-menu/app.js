@@ -457,9 +457,24 @@ function _syncStickyLeft(){
         .forEach(el => { el.style.transform = x > 0 ? `translateX(${x}px)` : ""; });
 }
 
+// Update transform lewat requestAnimationFrame (bukan langsung di
+// handler scroll) - event scroll bisa nembak lebih cepat dari ritme
+// render/paint browser, jadi kalau ditulis langsung tiap event,
+// hasilnya kolom yang "nempel" keliatan bergetar/telat sepersekian
+// detik dari posisi tabel yang sebenarnya. Dibatasi maksimal 1x per
+// frame supaya gerakannya mulus & selalu sinkron sama tabelnya.
+let _stickyRAF = null;
+function _onTableScroll(){
+    if(_stickyRAF !== null) return;
+    _stickyRAF = requestAnimationFrame(() => {
+        _stickyRAF = null;
+        _syncStickyLeft();
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("reportTableWrap");
-    if(wrap) wrap.addEventListener("scroll", _syncStickyLeft, { passive: true });
+    if(wrap) wrap.addEventListener("scroll", _onTableScroll, { passive: true });
 });
 
 function exportExcel(){
