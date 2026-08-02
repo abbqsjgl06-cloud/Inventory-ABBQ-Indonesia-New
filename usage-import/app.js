@@ -429,7 +429,16 @@ async function confirmImport(){
 
     renderImportHistory();
     const dayCount = Object.keys(SALES_BY_DATE_MENU).length;
-    toast(`✓ Usage berhasil disimpan (${details.length} item bahan baku${dayCount > 0 ? `, ${dayCount} hari terpecah` : ""})`, "success");
+    toast(`✓ Usage berhasil disimpan (${details.length} item bahan baku${dayCount > 0 ? `, ${dayCount} hari terpecah` : ""}). Membuka Rekap Menu...`, "success");
+
+    // Langsung arahkan ke Rekap Menu, difilter ke periode yang baru
+    // diimport, supaya hasilnya langsung kelihatan tanpa perlu pindah
+    // menu manual dulu.
+    if(header.periodStart && header.periodEnd){
+        setTimeout(() => {
+            window.location.href = `../rekap-menu/index.html?from=${header.periodStart}&to=${header.periodEnd}`;
+        }, 1200);
+    }
 }
 
 async function deleteImport(id){

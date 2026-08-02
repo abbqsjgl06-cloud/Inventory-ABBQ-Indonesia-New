@@ -225,11 +225,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
+    const params = new URLSearchParams(window.location.search);
+    const qFrom = params.get("from");
+    const qTo = params.get("to");
+
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 6); // default: 7 hari terakhir
-    document.getElementById("dateFrom").value = toLocalDateStr(start);
-    document.getElementById("dateTo").value = toLocalDateStr(end);
+    document.getElementById("dateFrom").value = qFrom || toLocalDateStr(start);
+    document.getElementById("dateTo").value = qTo || toLocalDateStr(end);
 
     generateReport();
 });

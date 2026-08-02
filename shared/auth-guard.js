@@ -142,7 +142,7 @@ function _computeFloatingTopOffset() {
     // langsung dari kandidat elemen kecil yang benar-benar dekat pojok
     // atas (top < 100px), bukan dari kontainer besar.
     var selector = [
-        ".back-btn", ".biz-date-badge", ".back-btn-inline",
+        ".back-btn", ".back-btn-inline",
         "a[href='../index.html']", "a[href='index.html']",
         "button[onclick*='authGuardLogout']", "button[onclick*='Logout']"
     ].join(",");
