@@ -361,83 +361,93 @@ function processRows(rows, filename){
 }
 
 async function confirmImport(){
-    const periodLabel = document.getElementById("periodLabel").value.trim() || defaultPeriodLabel();
-    const importId = "usg_" + Date.now();
-    const outletTag = (typeof window !== "undefined" && window.CURRENT_OUTLET_ID) ? window.CURRENT_OUTLET_ID : "shared";
+    const confirmBtn = document.getElementById("confirmImportBtn");
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = "Menyimpan..."; }
 
-    const header = {
-        id: importId,
-        filename: window._pendingFilename || "upload.xlsx",
-        periodLabel,
-        dateImported: new Date().toISOString(),
-        periodStart: DATE_MIN ? DATE_MIN.toISOString().slice(0,10) : null,
-        periodEnd: DATE_MAX ? DATE_MAX.toISOString().slice(0,10) : null,
-        rowCount: PARSED_ROWS.length,
-        unmatchedCount: UNMATCHED_MENUS.size,
-        unmatchedMenus: Array.from(UNMATCHED_MENUS)
-    };
+    try {
+        const periodLabel = document.getElementById("periodLabel").value.trim() || defaultPeriodLabel();
+        const importId = "usg_" + Date.now();
+        const outletTag = (typeof window !== "undefined" && window.CURRENT_OUTLET_ID) ? window.CURRENT_OUTLET_ID : "shared";
 
-    await InvDB.put("usageImports", header);
+        const header = {
+            id: importId,
+            filename: window._pendingFilename || "upload.xlsx",
+            periodLabel,
+            dateImported: new Date().toISOString(),
+            periodStart: DATE_MIN ? DATE_MIN.toISOString().slice(0,10) : null,
+            periodEnd: DATE_MAX ? DATE_MAX.toISOString().slice(0,10) : null,
+            rowCount: PARSED_ROWS.length,
+            unmatchedCount: UNMATCHED_MENUS.size,
+            unmatchedMenus: Array.from(UNMATCHED_MENUS)
+        };
 
-    // usageDetail - total per bahan baku utk 1 file (dipakai Laporan
-    // Variance, TIDAK diubah supaya laporan lama tetap jalan persis
-    // seperti sebelumnya).
-    const details = Object.entries(USAGE_RESULT).map(([material_code, qty]) => ({
-        importId, material_code, qty
-    }));
-    await InvDB.bulkPut("usageDetail", details);
+        await InvDB.put("usageImports", header);
 
-    // usageDailyMenu - usage MENU per tanggal (dipakai Rekap Menu).
-    // ID deterministik (outlet_tanggal_kodemenu) supaya kalau tanggal
-    // yang sama diupload ulang, datanya DIGANTI bukan dobel.
-    const dailyMenuRows = [];
-    Object.keys(SALES_BY_DATE_MENU).forEach(dateStr => {
-        Object.keys(SALES_BY_DATE_MENU[dateStr]).forEach(menuCode => {
-            dailyMenuRows.push({
-                id: `${outletTag}_${dateStr}_${menuCode}`,
-                date: dateStr,
-                menu_code: menuCode,
-                qty: SALES_BY_DATE_MENU[dateStr][menuCode],
-                importId
+        // usageDetail - total per bahan baku utk 1 file (dipakai Laporan
+        // Variance, TIDAK diubah supaya laporan lama tetap jalan persis
+        // seperti sebelumnya).
+        const details = Object.entries(USAGE_RESULT).map(([material_code, qty]) => ({
+            importId, material_code, qty
+        }));
+        await InvDB.bulkPut("usageDetail", details);
+
+        // usageDailyMenu - usage MENU per tanggal (dipakai Rekap Menu).
+        // ID deterministik (outlet_tanggal_kodemenu) supaya kalau tanggal
+        // yang sama diupload ulang, datanya DIGANTI bukan dobel.
+        const dailyMenuRows = [];
+        Object.keys(SALES_BY_DATE_MENU).forEach(dateStr => {
+            Object.keys(SALES_BY_DATE_MENU[dateStr]).forEach(menuCode => {
+                dailyMenuRows.push({
+                    id: `${outletTag}_${dateStr}_${menuCode}`,
+                    date: dateStr,
+                    menu_code: menuCode,
+                    qty: SALES_BY_DATE_MENU[dateStr][menuCode],
+                    importId
+                });
             });
         });
-    });
-    await InvDB.bulkPut("usageDailyMenu", dailyMenuRows);
+        await InvDB.bulkPut("usageDailyMenu", dailyMenuRows);
 
-    // usageDailyMaterial - usage BAHAN BAKU per tanggal (dipakai
-    // Forecasting Ordering utk rata-rata harian & pengurangan stock
-    // opname yang presisi per hari, bukan prorata).
-    const dailyMaterialRows = [];
-    Object.keys(USAGE_BY_DATE_MATERIAL).forEach(dateStr => {
-        Object.keys(USAGE_BY_DATE_MATERIAL[dateStr]).forEach(materialCode => {
-            dailyMaterialRows.push({
-                id: `${outletTag}_${dateStr}_${materialCode}`,
-                date: dateStr,
-                material_code: materialCode,
-                qty: USAGE_BY_DATE_MATERIAL[dateStr][materialCode],
-                importId
+        // usageDailyMaterial - usage BAHAN BAKU per tanggal (dipakai
+        // Forecasting Ordering utk rata-rata harian & pengurangan stock
+        // opname yang presisi per hari, bukan prorata).
+        const dailyMaterialRows = [];
+        Object.keys(USAGE_BY_DATE_MATERIAL).forEach(dateStr => {
+            Object.keys(USAGE_BY_DATE_MATERIAL[dateStr]).forEach(materialCode => {
+                dailyMaterialRows.push({
+                    id: `${outletTag}_${dateStr}_${materialCode}`,
+                    date: dateStr,
+                    material_code: materialCode,
+                    qty: USAGE_BY_DATE_MATERIAL[dateStr][materialCode],
+                    importId
+                });
             });
         });
-    });
-    await InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows);
-    await refreshCoveredDatesCache();
+        await InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows);
+        await refreshCoveredDatesCache();
 
-    ALL_IMPORTS.push(header);
-    document.getElementById("previewBox").style.display = "none";
-    document.getElementById("fileInput").value = "";
-    document.getElementById("fileName").textContent = "";
+        ALL_IMPORTS.push(header);
+        document.getElementById("previewBox").style.display = "none";
+        document.getElementById("fileInput").value = "";
+        document.getElementById("fileName").textContent = "";
 
-    renderImportHistory();
-    const dayCount = Object.keys(SALES_BY_DATE_MENU).length;
-    toast(`✓ Usage berhasil disimpan (${details.length} item bahan baku${dayCount > 0 ? `, ${dayCount} hari terpecah` : ""}). Membuka Rekap Menu...`, "success");
+        renderImportHistory();
+        const dayCount = Object.keys(SALES_BY_DATE_MENU).length;
+        toast(`✓ Usage berhasil disimpan (${details.length} item bahan baku${dayCount > 0 ? `, ${dayCount} hari terpecah` : ""}). Membuka Rekap Menu...`, "success");
 
-    // Langsung arahkan ke Rekap Menu, difilter ke periode yang baru
-    // diimport, supaya hasilnya langsung kelihatan tanpa perlu pindah
-    // menu manual dulu.
-    if(header.periodStart && header.periodEnd){
-        setTimeout(() => {
-            window.location.href = `../rekap-menu/index.html?from=${header.periodStart}&to=${header.periodEnd}`;
-        }, 1200);
+        // Langsung arahkan ke Rekap Menu, difilter ke periode yang baru
+        // diimport, supaya hasilnya langsung kelihatan tanpa perlu pindah
+        // menu manual dulu.
+        if(header.periodStart && header.periodEnd){
+            setTimeout(() => {
+                window.location.href = `../rekap-menu/index.html?from=${header.periodStart}&to=${header.periodEnd}`;
+            }, 1200);
+        }
+    } catch (err) {
+        console.error("Gagal menyimpan usage:", err);
+        toast("Gagal menyimpan: " + (err.message || "Cek koneksi internet dan coba lagi."), "error");
+    } finally {
+        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = "Simpan Hasil Usage"; }
     }
 }
 

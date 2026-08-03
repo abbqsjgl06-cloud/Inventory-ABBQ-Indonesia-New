@@ -11,16 +11,6 @@
 <style>
   :root{ --accent:#0E8C8C; --accent-tint:#E1F2F2; }
   thead th{background:var(--accent-tint);}
-  .drop{
-    border:2px dashed var(--line);
-    border-radius:14px;
-    padding:28px 16px;
-    text-align:center;
-    color:var(--muted);
-    font-size:13px;
-    margin-bottom:14px;
-  }
-  .file-input{display:none;}
   .step-badge{
     display:inline-flex;align-items:center;justify-content:center;
     width:20px;height:20px;border-radius:50%;
@@ -51,7 +41,7 @@
     <div class="flow-step"><span class="step-badge">4</span> Hasil usage per bahan baku otomatis dipakai di Laporan Variance</div>
   </div>
 
-  <div class="panel" id="adminToolsBox" style="display:none;border:2px dashed var(--accent);">
+  <div class="panel" id="adminToolsBox" style="display:none;background:var(--accent-tint);border-color:var(--accent);">
     <div class="panel-title">🛠 Alat Bantu Admin</div>
     <button class="btn btn-secondary" onclick="downloadTemplate()" style="margin-bottom:10px;">⬇ Download Template Excel</button>
     <button class="btn btn-secondary" onclick="showMenusWithoutBom()">📋 Lihat Menu Tanpa BOM</button>
@@ -60,11 +50,11 @@
 
   <div class="panel">
     <div class="panel-title">Upload File Penjualan</div>
-    <label class="drop" for="fileInput">
-      📄 Ketuk untuk pilih file .xlsx / .xls / .csv<br>
-      <span id="fileName" style="font-weight:600;color:var(--ink);"></span>
-    </label>
-    <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv">
+    <div class="field">
+      <label>File Penjualan (.xlsx / .xls / .csv)</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <div id="fileName" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+    </div>
 
     <div class="field">
       <label>Nama Periode (label laporan)</label>
@@ -92,7 +82,7 @@
           <div class="summary-value neg" id="menuUnmatched">0</div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="confirmImport()">Simpan Hasil Usage</button>
+      <button class="btn btn-primary" id="confirmImportBtn" onclick="confirmImport()">Simpan Hasil Usage</button>
     </div>
   </div>
 
@@ -164,8 +154,8 @@
 <script src="../shared/auth-guard.js?v=46"></script>
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/seed-data.js?v=25"></script>
-<script src="../shared/inv-db.js?v=38"></script>
+<script src="../shared/inv-db.js?v=39"></script>
 <script src="../shared/ui-dialog.js?v=25"></script>
-<script src="app.js?v=38"></script>
+<script src="app.js?v=39"></script>
 </body>
 </html>

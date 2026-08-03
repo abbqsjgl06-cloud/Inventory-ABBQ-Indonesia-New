@@ -113,11 +113,18 @@ function bindPhoto() {
     if (removeBtn) removeBtn.addEventListener("click", clearPhoto);
 }
 
+const MAX_TOTAL_PHOTO_CHARS = 850000; // sisakan ruang utk field lain dari batas ~1MB/dokumen Firestore
+
 async function selectPhoto(e) {
     const file = e.target.files[0];
     if (!file) return;
     try {
         const compressed = await compressPhoto(file);
+        const currentTotal = currentPhotos.reduce((s, p) => s + p.length, 0);
+        if (currentTotal + compressed.length > MAX_TOTAL_PHOTO_CHARS) {
+            toast(`Total ukuran foto sudah mendekati batas maksimal. Hapus 1 foto dulu, atau simpan tanpa menambah foto lagi (sudah ada ${currentPhotos.length} foto).`, "error");
+            return;
+        }
         currentPhotos.push(compressed);
         renderPhotoThumbs();
     } catch (err) {
@@ -135,17 +142,24 @@ function compressPhoto(file) {
             const img = new Image();
             img.onload = function () {
                 const canvas = document.createElement("canvas");
-                const scale = Math.min(1, 1000 / img.width, 1000 / img.height);
+                const scale = Math.min(1, 900 / img.width, 900 / img.height);
                 canvas.width = img.width * scale;
                 canvas.height = img.height * scale;
                 canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-                let quality = 0.6;
+                // Target dikecilkan jauh (dulu sampai 700-900KB PER FOTO) -
+                // sekarang 1 entri bisa punya beberapa foto sekaligus, dan
+                // semuanya harus muat dalam 1 dokumen Firestore (batas keras
+                // ~1MB TOTAL termasuk field lain). Kalau tiap foto masih
+                // ratusan KB, 3-4 foto saja sudah lewat batas itu dan
+                // penyimpanan akan gagal TANPA pemberitahuan yang jelas ke
+                // user (persis keluhan "tekan Simpan, tidak ada reaksi").
+                let quality = 0.5;
                 let result = canvas.toDataURL("image/jpeg", quality);
-                while (result.length > 700000 && quality > 0.3) {
+                while (result.length > 180000 && quality > 0.2) {
                     quality -= 0.1;
                     result = canvas.toDataURL("image/jpeg", quality);
                 }
-                if (result.length > 900000) {
+                if (result.length > 260000) {
                     reject(new Error("Foto masih terlalu besar setelah dikompres."));
                     return;
                 }
@@ -218,6 +232,9 @@ async function saveUsage() {
         updatedAt: new Date().toISOString()
     };
 
+    const saveBtn = document.getElementById("pcSaveBtn");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Menyimpan..."; }
+
     try {
         if (editId) {
             const old = ALL_USAGE.find(u => u.id === editId);
@@ -228,12 +245,15 @@ async function saveUsage() {
 
         await InvDB.put("pettyCashUsage", data);
         toast(editId ? "✓ Data diperbarui" : "✓ Penggunaan tersimpan", "success");
-        cancelEdit();
+        cancelEdit(); // ini juga yang mengembalikan label tombol ke teks normalnya
         loadSummary();
         loadHistory();
     } catch (err) {
         console.error(err);
-        toast("Gagal menyimpan. Cek koneksi internet.", "error");
+        toast("Gagal menyimpan: " + (err.message || "Cek koneksi internet."), "error");
+        if (saveBtn) saveBtn.textContent = editId ? "💾 Simpan Perubahan" : "💾 Simpan Penggunaan";
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 

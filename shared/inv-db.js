@@ -137,6 +137,25 @@ const InvDB = (() => {
         }
     }
 
+    // Firestore keras membatasi 1 dokumen maks ~1.048.487 byte. Kalau
+    // kelewat, .set()/batch.commit() akan REJECT - dan kalau pemanggil
+    // tidak menampilkan pesan yang jelas, dari sisi user kelihatannya
+    // seperti tombol "Simpan" tidak bereaksi sama sekali. Dicek di sini
+    // (satu tempat, dipakai semua modul) supaya pesannya konsisten &
+    // jelas, sebelum sempat-sempat kirim ke server.
+    const FIRESTORE_MAX_DOC_BYTES = 1000000; // sedikit di bawah batas asli sbg jaga-jaga
+    function _estimateBytes(obj) {
+        try { return new Blob([JSON.stringify(obj)]).size; }
+        catch (e) { return JSON.stringify(obj).length; } // fallback kasar kalau Blob tak tersedia
+    }
+    function _assertDocSize(data, storeName) {
+        const bytes = _estimateBytes(data);
+        if (bytes > FIRESTORE_MAX_DOC_BYTES) {
+            const mb = (bytes / 1000000).toFixed(2);
+            throw new Error(`Data terlalu besar untuk disimpan (${mb} MB, maksimal ~1 MB per entri di "${storeName}"). Kurangi jumlah/ukuran foto atau data, lalu coba lagi.`);
+        }
+    }
+
     async function put(storeName, value) {
         _assertNotViewer();
         await _waitForOutletReady();
@@ -153,6 +172,8 @@ const InvDB = (() => {
             docId = col(storeName).doc().id;
             data = { ...data, [kp]: docId };
         }
+
+        _assertDocSize(data, storeName);
 
         const docRef = col(storeName).doc(String(docId));
         await docRef.set(data);
@@ -201,6 +222,7 @@ const InvDB = (() => {
                     docId = col(storeName).doc().id;
                     data = { ...data, [kp]: docId };
                 }
+                _assertDocSize(data, storeName);
                 batch.set(col(storeName).doc(String(docId)), data);
             });
 
