@@ -8,7 +8,7 @@
 
 const Export = (() => {
 
-    const COLUMNS = [
+    const BASE_COLUMNS = [
         { header: "No", key: "no", width: 5 },
         { header: "Waste No", key: "wasteNo", width: 20 },
         { header: "Tanggal", key: "date", width: 14 },
@@ -20,9 +20,15 @@ const Export = (() => {
         { header: "Qty", key: "qty", width: 10 },
         { header: "Kategori", key: "category", width: 16 },
         { header: "Reason", key: "reason", width: 26 },
-        { header: "Remark", key: "remark", width: 20 },
-        { header: "Foto", key: "photo", width: 20 }
+        { header: "Remark", key: "remark", width: 20 }
     ];
+
+    // Mendukung data lama (field "photo" tunggal) maupun baru (array "photos").
+    function getPhotos(r){
+        if (r.photos && r.photos.length) return r.photos;
+        if (r.photo) return [r.photo];
+        return [];
+    }
 
     /* ======================================
        EXPORT EXCEL (with embedded photos)
@@ -44,18 +50,29 @@ const Export = (() => {
             const wb = new ExcelJS.Workbook();
             const ws = wb.addWorksheet("Waste");
 
-            ws.columns = COLUMNS;
+            // Jumlah kolom Foto dibuat dinamis - mengikuti record dengan
+            // foto TERBANYAK, supaya semua foto (bukan cuma foto pertama)
+            // ikut ter-lampir saat export.
+            const maxPhotos = records.reduce((m, r) => Math.max(m, getPhotos(r).length), 0);
+            const photoColumns = [];
+            for (let i = 0; i < Math.max(maxPhotos, 1); i++) {
+                photoColumns.push({ header: `Foto ${i + 1}`, key: `photo${i}`, width: 18 });
+            }
+            const columns = BASE_COLUMNS.concat(photoColumns);
+            ws.columns = columns;
 
             ws.getRow(1).font = { bold: true };
             ws.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
 
             const PHOTO_ROW_HEIGHT = 90;
+            const firstPhotoCol = BASE_COLUMNS.length;
 
             records.forEach((r, idx) => {
 
                 const rowIndex = idx + 2;
+                const photos = getPhotos(r);
 
-                const row = ws.addRow({
+                const rowData = {
                     no: idx + 1,
                     wasteNo: r.wasteNo || "",
                     date: Helper.formatDate(r.date),
@@ -67,29 +84,29 @@ const Export = (() => {
                     qty: r.qty,
                     category: r.category || "",
                     reason: r.reason || "",
-                    remark: r.remark || "",
-                    photo: r.photo ? "" : "Tidak ada foto"
-                });
+                    remark: r.remark || ""
+                };
+                photoColumns.forEach((c, i) => { rowData[c.key] = photos[i] ? "" : (i === 0 ? "Tidak ada foto" : ""); });
 
+                const row = ws.addRow(rowData);
                 row.alignment = { vertical: "middle", wrapText: true };
 
-                if (r.photo) {
-
+                photos.forEach((photo, i) => {
                     try {
 
-                        const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(r.photo);
+                        const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(photo);
 
                         if (match) {
 
                             const ext = match[1] === "jpg" ? "jpeg" : match[1];
 
                             const imageId = wb.addImage({
-                                base64: r.photo,
+                                base64: photo,
                                 extension: ext
                             });
 
                             ws.addImage(imageId, {
-                                tl: { col: COLUMNS.length - 1, row: rowIndex - 1 },
+                                tl: { col: firstPhotoCol + i, row: rowIndex - 1 },
                                 ext: { width: 110, height: 110 },
                                 editAs: "oneCell"
                             });
@@ -101,8 +118,7 @@ const Export = (() => {
                     } catch (imgErr) {
                         console.error("Gagal menyisipkan foto untuk baris", rowIndex, imgErr);
                     }
-
-                }
+                });
 
             });
 

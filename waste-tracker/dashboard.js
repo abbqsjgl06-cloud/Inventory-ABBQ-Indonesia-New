@@ -58,7 +58,7 @@ const Dashboard = (() => {
 
             }
 
-            if (item.photo) {
+            if ((item.photos && item.photos.length) || item.photo) {
 
                 totalPhoto++;
 

@@ -109,9 +109,9 @@ const Input = (() => {
 
                 document.getElementById("reason").value.trim(),
 
-            photo:
+            photos:
 
-                Camera.get ? Camera.get() : null,
+                Camera.getAll ? Camera.getAll() : [],
 
             createdAt:
 
@@ -212,11 +212,8 @@ const Input = (() => {
         document.getElementById("reason").value = data.reason;
         document.getElementById("remark").value = data.remark;
 
-        if (data.photo) {
-
-            Camera.set && Camera.set(data.photo);
-
-        }
+        const existingPhotos = (data.photos && data.photos.length) ? data.photos : (data.photo ? [data.photo] : []);
+        Camera.setAll && Camera.setAll(existingPhotos);
 
         window.scrollTo({
 
@@ -330,7 +327,7 @@ async function handleAdminWasteUpload(e){
                 qty: Number(qty) || 0,
                 category: kategori ? String(kategori).trim() : "Expired",
                 reason: reason ? String(reason).trim() : "",
-                photo: null,
+                photos: [],
                 createdAt: Helper.now(),
                 updatedAt: Helper.now()
             };

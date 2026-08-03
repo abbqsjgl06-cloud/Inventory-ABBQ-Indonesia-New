@@ -123,15 +123,15 @@
       <input type="number" id="pcAmount" placeholder="0">
     </div>
     <div class="field">
-      <label>Foto Barang/Struk (opsional)</label>
+      <label>Foto Barang/Struk (boleh lebih dari 1, opsional)</label>
       <input id="pcPhotoInput" type="file" accept="image/*" capture="environment" style="display:none;">
       <input id="pcPhotoInputGallery" type="file" accept="image/*" style="display:none;">
       <div style="display:flex;gap:8px;">
         <button type="button" id="pcTakePhotoBtn" class="btn btn-secondary" style="flex:1;">📷 Ambil Foto</button>
         <button type="button" id="pcPickGalleryBtn" class="btn btn-secondary" style="flex:1;">🖼️ Dari Galeri</button>
       </div>
-      <img id="pcPhotoPreview" style="display:none;max-width:160px;border-radius:10px;margin-top:8px;">
-      <button type="button" id="pcRemovePhotoBtn" class="btn btn-ghost" style="margin-top:6px;">Hapus Foto</button>
+      <div id="pcPhotoThumbs" style="display:none;flex-wrap:wrap;gap:10px;margin-top:8px;"></div>
+      <button type="button" id="pcRemovePhotoBtn" class="btn btn-ghost" style="margin-top:6px;">Hapus Semua Foto</button>
     </div>
     <input type="hidden" id="pcEditId">
     <button class="btn btn-primary" id="pcSaveBtn" onclick="saveUsage()">💾 Simpan Penggunaan</button>
@@ -203,6 +203,6 @@
 <script src="../../shared/inv-db.js?v=38"></script>
 <script src="../../shared/ui-dialog.js?v=36"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 const Camera = (() => {
-let currentPhoto=null;
+let currentPhotos = []; // sekarang mendukung LEBIH DARI 1 foto per entri
 function init(){
  const input=document.getElementById("photoInput");
  if(input) input.addEventListener("change",selectPhoto);
@@ -17,13 +17,18 @@ async function selectPhoto(e){
  if(!file)return;
  try{
   UI.showLoading();
-  currentPhoto=await compress(file);
-  preview(currentPhoto);
+  const compressed=await compress(file);
+  currentPhotos.push(compressed);
+  renderThumbs();
   UI.hideLoading();
  }catch(err){
   console.error(err);
   UI.hideLoading();
   UI.toast("Foto gagal diproses. Coba gunakan foto lain.","error");
+ } finally {
+  // reset value supaya foto/file yang sama bisa dipilih lagi kalau perlu,
+  // dan supaya event "change" tetap nembak walau user pilih file identik
+  e.target.value = "";
  }
 }
 function compress(file){
@@ -58,20 +63,38 @@ function compress(file){
   reader.readAsDataURL(file);
  });
 }
-function preview(src){
- const img=document.getElementById("photoPreview");
- if(img){img.src=src;img.style.display="block";}
+function renderThumbs(){
+ const wrap=document.getElementById("photoThumbs");
+ if(!wrap) return;
+ if(currentPhotos.length === 0){ wrap.innerHTML=""; wrap.style.display="none"; return; }
+ wrap.style.display="flex";
+ wrap.innerHTML = currentPhotos.map((src,i) => `
+    <div style="position:relative;display:inline-block;">
+        <img src="${src}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
+        <button type="button" onclick="Camera.removeAt(${i})"
+            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+                   border:none;background:#C23B2E;color:#fff;font-size:12px;line-height:1;cursor:pointer;">✕</button>
+    </div>
+ `).join("");
 }
-function get(){return currentPhoto;}
-function set(src){currentPhoto=src;preview(src);}
+function removeAt(idx){
+ currentPhotos.splice(idx,1);
+ renderThumbs();
+}
+// getAll/setAll = API baru (banyak foto). get/set dipertahankan untuk
+// kompatibilitas kalau ada kode lama yang masih memanggilnya - get()
+// mengembalikan foto pertama saja, set() mengganti jadi 1 foto saja.
+function getAll(){ return currentPhotos.slice(); }
+function setAll(arr){ currentPhotos = Array.isArray(arr) ? arr.filter(Boolean) : []; renderThumbs(); }
+function get(){ return currentPhotos[0] || null; }
+function set(src){ currentPhotos = src ? [src] : []; renderThumbs(); }
 function clear(){
- currentPhoto=null;
- const img=document.getElementById("photoPreview");
- if(img)img.src="";
+ currentPhotos=[];
+ renderThumbs();
  const input=document.getElementById("photoInput");
  if(input) input.value="";
  const galleryInput=document.getElementById("photoInputGallery");
  if(galleryInput) galleryInput.value="";
 }
-return {init,get,set,clear};
+return {init,get,set,getAll,setAll,removeAt,clear};
 })();

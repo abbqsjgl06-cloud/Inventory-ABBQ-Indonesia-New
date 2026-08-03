@@ -5,7 +5,7 @@ const DEFAULT_SALDO_AWAL = 1000000;
 let IS_ADMIN = false;
 let ALL_USAGE = [];
 let HISTORY_FILTERED = [];
-let currentPhoto = null;
+let currentPhotos = [];
 let editId = null;
 let SELECTED_IDS = new Set();
 
@@ -117,11 +117,14 @@ async function selectPhoto(e) {
     const file = e.target.files[0];
     if (!file) return;
     try {
-        currentPhoto = await compressPhoto(file);
-        previewPhoto(currentPhoto);
+        const compressed = await compressPhoto(file);
+        currentPhotos.push(compressed);
+        renderPhotoThumbs();
     } catch (err) {
         console.error(err);
         toast("Foto gagal diproses. Coba gunakan foto lain.", "error");
+    } finally {
+        e.target.value = ""; // supaya bisa ambil/pilih foto lagi tanpa kendala
     }
 }
 
@@ -156,19 +159,41 @@ function compressPhoto(file) {
     });
 }
 
-function previewPhoto(src) {
-    const img = document.getElementById("pcPhotoPreview");
-    if (img) { img.src = src; img.style.display = "block"; }
+function renderPhotoThumbs() {
+    const wrap = document.getElementById("pcPhotoThumbs");
+    if (!wrap) return;
+    if (currentPhotos.length === 0) { wrap.innerHTML = ""; wrap.style.display = "none"; return; }
+    wrap.style.display = "flex";
+    wrap.innerHTML = currentPhotos.map((src, i) => `
+        <div style="position:relative;display:inline-block;">
+            <img src="${src}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
+            <button type="button" onclick="removePhotoAt(${i})"
+                style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+                       border:none;background:#C23B2E;color:#fff;font-size:12px;line-height:1;cursor:pointer;">✕</button>
+        </div>
+    `).join("");
+}
+
+function removePhotoAt(idx) {
+    currentPhotos.splice(idx, 1);
+    renderPhotoThumbs();
 }
 
 function clearPhoto() {
-    currentPhoto = null;
-    const img = document.getElementById("pcPhotoPreview");
-    if (img) { img.src = ""; img.style.display = "none"; }
+    currentPhotos = [];
+    renderPhotoThumbs();
     const input = document.getElementById("pcPhotoInput");
     if (input) input.value = "";
     const galleryInput = document.getElementById("pcPhotoInputGallery");
     if (galleryInput) galleryInput.value = "";
+}
+
+// Data lama pakai field "photo" tunggal; data baru pakai "photos" array.
+// Helper ini dipakai di mana pun perlu baca foto supaya kompatibel keduanya.
+function getPhotos(item) {
+    if (item.photos && item.photos.length) return item.photos;
+    if (item.photo) return [item.photo];
+    return [];
 }
 
 /* ======================================
@@ -189,7 +214,7 @@ async function saveUsage() {
     const id = editId || ("pc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8));
     const data = {
         id, date, category, description, amount,
-        photo: currentPhoto,
+        photos: currentPhotos,
         updatedAt: new Date().toISOString()
     };
 
@@ -197,7 +222,6 @@ async function saveUsage() {
         if (editId) {
             const old = ALL_USAGE.find(u => u.id === editId);
             data.createdAt = old ? old.createdAt : new Date().toISOString();
-            if (!currentPhoto && old) data.photo = old.photo || null;
         } else {
             data.createdAt = new Date().toISOString();
         }
@@ -223,8 +247,8 @@ function editUsage(id) {
     document.getElementById("pcDescription").value = data.description || "";
     document.getElementById("pcAmount").value = data.amount || 0;
 
-    if (data.photo) { currentPhoto = data.photo; previewPhoto(data.photo); }
-    else { clearPhoto(); }
+    currentPhotos = getPhotos(data);
+    renderPhotoThumbs();
 
     document.getElementById("pcSaveBtn").textContent = "💾 Simpan Perubahan";
     document.getElementById("pcCancelEditBtn").style.display = "";
@@ -290,7 +314,7 @@ async function loadHistory() {
                 <td>${u.category}</td>
                 <td>${u.description}</td>
                 <td class="num">${rupiah(u.amount)}</td>
-                <td>${u.photo ? `<img src="${u.photo}" class="photo-thumb" onclick="showPhoto('${u.id}')">` : "-"}</td>
+                <td>${getPhotos(u).length ? `<img src="${getPhotos(u)[0]}" class="photo-thumb" onclick="showPhoto('${u.id}')">${getPhotos(u).length > 1 ? `<span style="font-size:11px;color:var(--muted);">+${getPhotos(u).length - 1}</span>` : ""}` : "-"}</td>
                 <td>
                     <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="editUsage('${u.id}')">Edit</button>
                     <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="deleteUsage('${u.id}')">Hapus</button>
@@ -334,18 +358,23 @@ function showPhoto(id) {
     const item = HISTORY_FILTERED.find(u => u.id === id)
         || REIMBURSE_FILTERED.find(u => u.id === id)
         || ALL_USAGE.find(u => u.id === id);
-    if (!item || !item.photo) return;
+    const photos = item ? getPhotos(item) : [];
+    if (photos.length === 0) return;
     const win = window.open("");
     if (!win) { toast("Popup diblokir browser. Izinkan popup untuk melihat foto.", "error"); return; }
     win.document.title = item.description + " - Foto";
     win.document.body.style.margin = "0";
     win.document.body.style.background = "#111";
-    const img = win.document.createElement("img");
-    img.src = item.photo;
-    img.style.maxWidth = "100%";
-    img.style.display = "block";
-    img.style.margin = "0 auto";
-    win.document.body.appendChild(img);
+    win.document.body.style.padding = "12px";
+    win.document.body.style.boxSizing = "border-box";
+    photos.forEach((src, i) => {
+        const img = win.document.createElement("img");
+        img.src = src;
+        img.style.maxWidth = "100%";
+        img.style.display = "block";
+        img.style.margin = i === 0 ? "0 auto 12px" : "12px auto";
+        win.document.body.appendChild(img);
+    });
 }
 
 /* ======================================
@@ -423,38 +452,48 @@ async function exportReimburse() {
     try {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet("Riwayat Reimburse");
+
+        const sorted = [...selected].sort((a, b) => (a.reimbursedDate || "").localeCompare(b.reimbursedDate || ""));
+        const maxPhotos = sorted.reduce((m, u) => Math.max(m, getPhotos(u).length), 0);
+        const photoColumns = [];
+        for (let i = 0; i < Math.max(maxPhotos, 1); i++) {
+            photoColumns.push({ header: `Foto ${i + 1}`, key: `photo${i}`, width: 16 });
+        }
+
         ws.columns = [
             { header: "Tgl Transaksi", key: "date", width: 14 },
             { header: "Tgl Reimburse", key: "reimbursedDate", width: 14 },
             { header: "Kategori", key: "category", width: 18 },
             { header: "Deskripsi", key: "description", width: 30 },
             { header: "Amount", key: "amount", width: 16 },
-            { header: "Foto", key: "photo", width: 20 }
+            ...photoColumns
         ];
         ws.getRow(1).font = { bold: true };
-
-        const sorted = [...selected].sort((a, b) => (a.reimbursedDate || "").localeCompare(b.reimbursedDate || ""));
+        const firstPhotoCol = 5; // 0-indexed: setelah date, reimbursedDate, category, description, amount
 
         sorted.forEach((u, idx) => {
             const rowIndex = idx + 2;
-            const row = ws.addRow({
+            const photos = getPhotos(u);
+            const rowData = {
                 date: u.date,
                 reimbursedDate: u.reimbursedDate || "-",
                 category: u.category,
                 description: u.description,
-                amount: Number(u.amount) || 0,
-                photo: u.photo ? "" : "Tidak ada foto"
-            });
+                amount: Number(u.amount) || 0
+            };
+            photoColumns.forEach((c, i) => { rowData[c.key] = photos[i] ? "" : (i === 0 ? "Tidak ada foto" : ""); });
+
+            const row = ws.addRow(rowData);
             row.alignment = { vertical: "middle", wrapText: true };
 
-            if (u.photo) {
+            photos.forEach((photo, i) => {
                 try {
-                    const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(u.photo);
+                    const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(photo);
                     if (match) {
                         const ext = match[1] === "jpg" ? "jpeg" : match[1];
-                        const imageId = wb.addImage({ base64: u.photo, extension: ext });
+                        const imageId = wb.addImage({ base64: photo, extension: ext });
                         ws.addImage(imageId, {
-                            tl: { col: 5, row: rowIndex - 1 },
+                            tl: { col: firstPhotoCol + i, row: rowIndex - 1 },
                             ext: { width: 100, height: 100 },
                             editAs: "oneCell"
                         });
@@ -463,12 +502,12 @@ async function exportReimburse() {
                 } catch (imgErr) {
                     console.error("Gagal menyisipkan foto baris", rowIndex, imgErr);
                 }
-            }
+            });
         });
 
         const totalRow = ws.addRow({
             date: "", reimbursedDate: "", category: "", description: "TOTAL",
-            amount: sorted.reduce((s, u) => s + (Number(u.amount) || 0), 0), photo: ""
+            amount: sorted.reduce((s, u) => s + (Number(u.amount) || 0), 0)
         });
         totalRow.font = { bold: true };
 
@@ -525,7 +564,7 @@ async function loadReimburse() {
                 <td>${u.description}</td>
                 <td class="num">${rupiah(u.amount)}</td>
                 <td>
-                    ${u.photo ? `<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="showPhoto('${u.id}')">Foto</button>` : ""}
+                    ${getPhotos(u).length ? `<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="showPhoto('${u.id}')">Foto${getPhotos(u).length > 1 ? ` (${getPhotos(u).length})` : ""}</button>` : ""}
                     <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="undoReimburse('${u.id}')">Batalkan</button>
                 </td>
             </tr>
@@ -576,36 +615,46 @@ async function exportExcel() {
     try {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet("Petty Cash");
+
+        const sortedRecords = [...records].sort((a, b) => a.date.localeCompare(b.date));
+        const maxPhotos = sortedRecords.reduce((m, r) => Math.max(m, getPhotos(r).length), 0);
+        const photoColumns = [];
+        for (let i = 0; i < Math.max(maxPhotos, 1); i++) {
+            photoColumns.push({ header: `Foto ${i + 1}`, key: `photo${i}`, width: 16 });
+        }
+
         ws.columns = [
             { header: "Tanggal", key: "date", width: 14 },
             { header: "Kategori", key: "category", width: 18 },
             { header: "Deskripsi", key: "description", width: 30 },
             { header: "Amount", key: "amount", width: 16 },
-            { header: "Foto", key: "photo", width: 20 }
+            ...photoColumns
         ];
         ws.getRow(1).font = { bold: true };
-
-        const sortedRecords = [...records].sort((a, b) => a.date.localeCompare(b.date));
+        const firstPhotoCol = 4; // 0-indexed: setelah date, category, description, amount
 
         sortedRecords.forEach((r, idx) => {
             const rowIndex = idx + 2;
-            const row = ws.addRow({
+            const photos = getPhotos(r);
+            const rowData = {
                 date: r.date,
                 category: r.category,
                 description: r.description,
-                amount: r.amount,
-                photo: r.photo ? "" : "Tidak ada foto"
-            });
+                amount: r.amount
+            };
+            photoColumns.forEach((c, i) => { rowData[c.key] = photos[i] ? "" : (i === 0 ? "Tidak ada foto" : ""); });
+
+            const row = ws.addRow(rowData);
             row.alignment = { vertical: "middle", wrapText: true };
 
-            if (r.photo) {
+            photos.forEach((photo, i) => {
                 try {
-                    const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(r.photo);
+                    const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/.exec(photo);
                     if (match) {
                         const ext = match[1] === "jpg" ? "jpeg" : match[1];
-                        const imageId = wb.addImage({ base64: r.photo, extension: ext });
+                        const imageId = wb.addImage({ base64: photo, extension: ext });
                         ws.addImage(imageId, {
-                            tl: { col: 4, row: rowIndex - 1 },
+                            tl: { col: firstPhotoCol + i, row: rowIndex - 1 },
                             ext: { width: 100, height: 100 },
                             editAs: "oneCell"
                         });
@@ -614,10 +663,10 @@ async function exportExcel() {
                 } catch (imgErr) {
                     console.error("Gagal menyisipkan foto baris", rowIndex, imgErr);
                 }
-            }
+            });
         });
 
-        const totalRow = ws.addRow({ date: "", category: "", description: "TOTAL", amount: sortedRecords.reduce((s, r) => s + (Number(r.amount) || 0), 0), photo: "" });
+        const totalRow = ws.addRow({ date: "", category: "", description: "TOTAL", amount: sortedRecords.reduce((s, r) => s + (Number(r.amount) || 0), 0) });
         totalRow.font = { bold: true };
 
         const buf = await wb.xlsx.writeBuffer();

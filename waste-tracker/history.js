@@ -96,7 +96,7 @@ const History = (() => {
                 <td>${r.uom}</td>
                 <td class="numCell">${r.qty}</td>
                 <td class="rowActions">
-                    ${r.photo ? `<button type="button" class="iconBtn photoBtn" data-id="${r.id}" title="Lihat Foto">Foto</button>` : ""}
+                    ${(r.photos && r.photos.length) || r.photo ? `<button type="button" class="iconBtn photoBtn" data-id="${r.id}" title="Lihat Foto">Foto${(r.photos && r.photos.length > 1) ? ` (${r.photos.length})` : ""}</button>` : ""}
                     <button type="button" class="iconBtn editBtn" data-id="${r.id}" title="Edit">Edit</button>
                     <button type="button" class="iconBtn deleteBtn" data-id="${r.id}" title="Hapus">Hapus</button>
                 </td>
@@ -218,6 +218,9 @@ const History = (() => {
 
     function showPhoto(item) {
 
+        const photos = (item.photos && item.photos.length) ? item.photos : (item.photo ? [item.photo] : []);
+        if (photos.length === 0) return;
+
         const win = window.open("");
 
         if (!win) {
@@ -228,14 +231,17 @@ const History = (() => {
         win.document.title = item.item + " - Foto";
         win.document.body.style.margin = "0";
         win.document.body.style.background = "#111";
+        win.document.body.style.padding = "12px";
+        win.document.body.style.boxSizing = "border-box";
 
-        const img = win.document.createElement("img");
-        img.src = item.photo;
-        img.style.maxWidth = "100%";
-        img.style.display = "block";
-        img.style.margin = "0 auto";
-
-        win.document.body.appendChild(img);
+        photos.forEach((src, i) => {
+            const img = win.document.createElement("img");
+            img.src = src;
+            img.style.maxWidth = "100%";
+            img.style.display = "block";
+            img.style.margin = i === 0 ? "0 auto 12px" : "12px auto";
+            win.document.body.appendChild(img);
+        });
 
     }
 

@@ -131,15 +131,15 @@
 
 
 <div class="formGroup">
-<label>Foto</label>
+<label>Foto (boleh lebih dari 1)</label>
 <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none;">
 <input id="photoInputGallery" type="file" accept="image/*" style="display:none;">
 <div style="display:flex;gap:8px;">
   <button type="button" id="takePhotoBtn" class="secondary" style="flex:1;">📷 Ambil Foto</button>
   <button type="button" id="pickGalleryBtn" class="secondary" style="flex:1;">🖼️ Dari Galeri</button>
 </div>
-<img id="photoPreview" class="photoPreview" alt="">
-<button type="button" id="removePhotoBtn" class="secondary">Hapus Foto</button>
+<div id="photoThumbs" style="display:none;flex-wrap:wrap;gap:10px;margin-top:8px;"></div>
+<button type="button" id="removePhotoBtn" class="secondary">Hapus Semua Foto</button>
 </div>
 
 <button id="saveBtn" class="primary">Simpan Waste</button>
