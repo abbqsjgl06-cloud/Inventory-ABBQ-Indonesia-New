@@ -154,13 +154,14 @@
     <div style="font-size:13px;font-weight:700;margin-top:10px;" id="histTotalLine"></div>
     <div class="table-wrap pc-hist-table-wrap" style="margin-top:10px;">
       <table>
-        <thead><tr><th></th><th>Tanggal</th><th>Kategori</th><th>Deskripsi</th><th class="num">Amount</th><th></th><th></th></tr></thead>
+        <thead><tr><th style="width:32px;"><input type="checkbox" id="histSelectAll" onchange="toggleSelectAllHistory(this)" title="Pilih semua"></th><th>Tanggal</th><th>Kategori</th><th>Deskripsi</th><th class="num">Amount</th><th></th><th></th></tr></thead>
         <tbody id="histBody"></tbody>
       </table>
     </div>
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-secondary" id="exportBtn" onclick="exportExcel()">⬇ Export ke Excel</button>
       <button class="btn btn-primary" id="reimburseBtn" onclick="reimburseSelected()" disabled>🔁 Reimburse Terpilih</button>
+      <button class="btn btn-ghost" id="deleteSelectedBtn" onclick="deleteSelectedUsage()" disabled style="color:#C23B2E;">🗑 Hapus Terpilih</button>
     </div>
   </div>
 
@@ -200,9 +201,9 @@
 <script>window.AUTH_GUARD_DEPTH = 2;</script>
 <script src="../../shared/auth-guard.js?v=46"></script>
 <script src="../../shared/chat-widget.js?v=2"></script>
-<script src="../../shared/inv-db.js?v=39"></script>
+<script src="../../shared/inv-db.js?v=40"></script>
 <script src="../../shared/ui-dialog.js?v=36"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

@@ -60,13 +60,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         BrokenChicken.init();
 
-        await Dashboard.init();
-
         Export.init();
 
         UI.hideLoading();
 
         console.log("ABBQ Waste Tracker Ready");
+
+        // Dashboard (ringkasan 30 hari terakhir) dimuat DI BELAKANG,
+        // bukan lagi ikut ditunggu sebelum layar "Pilih Menu" muncul -
+        // sebelumnya ini yang bikin loading awal kerasa lama, padahal
+        // saat baru buka menu, user belum tentu langsung butuh lihat
+        // ringkasannya.
+        Dashboard.init().catch(err => console.error("Gagal memuat dashboard:", err));
 
     }
 

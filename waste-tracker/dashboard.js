@@ -26,7 +26,19 @@ const Dashboard = (() => {
 
     async function load() {
 
-        records = await DB.getWaste();
+        // Dashboard cuma perlu gambaran BELAKANGAN INI (30 hari terakhir),
+        // bukan seluruh riwayat sejak awal pakai aplikasi. Sebelumnya di
+        // sini ambil SEMUA data waste dari awal (termasuk semua fotonya)
+        // cuma buat itung ringkasan - itu yang bikin menu ini lambat
+        // dibuka, dan bakal makin lambat terus seiring riwayatnya
+        // menumpuk. Kalau perlu lihat riwayat lengkap/tanggal lain,
+        // tetap bisa lewat menu "Riwayat" yang punya filter tanggal sendiri.
+        const to = Helper.today();
+        const fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 29);
+        const from = fromDate.toISOString().slice(0, 10);
+
+        records = await DB.getWasteByDate(from, to);
 
         updateSummary();
 

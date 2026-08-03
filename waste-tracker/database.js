@@ -47,8 +47,7 @@ const DB = (() => {
     }
 
     async function getWasteByDate(from, to) {
-        const all = await getWaste();
-        return all.filter(item => item.date >= from && item.date <= to);
+        return InvDB.getByDateRange("wasteRecords", from, to, "date");
     }
 
     /* ======================================
@@ -76,8 +75,7 @@ const DB = (() => {
     }
 
     async function getBrokenChickenByDate(from, to) {
-        const all = await getBrokenChicken();
-        return all.filter(item => item.date >= from && item.date <= to);
+        return InvDB.getByDateRange("brokenChickenRecords", from, to, "date");
     }
 
     /* ======================================

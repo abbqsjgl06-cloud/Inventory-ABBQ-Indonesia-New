@@ -307,6 +307,8 @@ async function loadHistory() {
         const all = ALL_USAGE.length ? ALL_USAGE : await InvDB.getAll("pettyCashUsage");
         ALL_USAGE = all;
         SELECTED_IDS.clear();
+        const selectAllEl = document.getElementById("histSelectAll");
+        if (selectAllEl) selectAllEl.checked = false;
 
         // Hanya tampilkan transaksi yang belum di-reimburse - yang sudah
         // di-reimburse pindah ke panel "Reimburse" di bawah.
@@ -352,6 +354,17 @@ async function loadHistory() {
 function toggleSelect(id, checked) {
     if (checked) SELECTED_IDS.add(id);
     else SELECTED_IDS.delete(id);
+    const selectAll = document.getElementById("histSelectAll");
+    if (selectAll) selectAll.checked = HISTORY_FILTERED.length > 0 && SELECTED_IDS.size === HISTORY_FILTERED.length;
+    updateActionButtons();
+}
+
+function toggleSelectAllHistory(checkbox) {
+    document.querySelectorAll(".pcRowCheck").forEach(el => {
+        el.checked = checkbox.checked;
+        if (checkbox.checked) SELECTED_IDS.add(el.value);
+        else SELECTED_IDS.delete(el.value);
+    });
     updateActionButtons();
 }
 
@@ -363,6 +376,7 @@ function updateActionButtons() {
 
     const reimburseBtn = document.getElementById("reimburseBtn");
     const exportBtn = document.getElementById("exportBtn");
+    const deleteBtn = document.getElementById("deleteSelectedBtn");
 
     reimburseBtn.disabled = count === 0;
     reimburseBtn.textContent = count === 0
@@ -372,6 +386,37 @@ function updateActionButtons() {
     exportBtn.textContent = count === 0
         ? `⬇ Export ke Excel (Semua: ${HISTORY_FILTERED.length})`
         : `⬇ Export ke Excel (Terpilih: ${count})`;
+
+    if (deleteBtn) {
+        deleteBtn.disabled = count === 0;
+        deleteBtn.textContent = count === 0 ? "🗑 Hapus Terpilih" : `🗑 Hapus Terpilih (${count})`;
+    }
+}
+
+// Tersedia utk SEMUA role yang login (bukan cuma admin) - sama seperti
+// hapus satuan yang memang dari dulu tidak dibatasi role tertentu.
+async function deleteSelectedUsage() {
+    if (SELECTED_IDS.size === 0) return;
+    const selected = HISTORY_FILTERED.filter(u => SELECTED_IDS.has(u.id));
+    const ok = await uiConfirm(`Hapus ${selected.length} data penggunaan terpilih? Tindakan ini tidak bisa dibatalkan.`);
+    if (!ok) return;
+
+    try {
+        for (const u of selected) {
+            await InvDB.remove("pettyCashUsage", u.id);
+        }
+        toast(`✓ ${selected.length} data dihapus`, "success");
+        SELECTED_IDS.clear();
+        ALL_USAGE = [];
+        await loadSummary();
+        await loadHistory();
+    } catch (err) {
+        console.error(err);
+        toast("Gagal menghapus sebagian/semua data. Cek koneksi internet.", "error");
+        ALL_USAGE = [];
+        await loadSummary();
+        await loadHistory();
+    }
 }
 
 function showPhoto(id) {

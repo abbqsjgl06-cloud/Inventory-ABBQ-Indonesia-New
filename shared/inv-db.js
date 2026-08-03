@@ -120,6 +120,28 @@ const InvDB = (() => {
         return snap.docs.map(d => d.data());
     }
 
+    // Query BENERAN dibatasi tanggal di sisi server (bukan ambil semua
+    // dokumen lalu disaring di HP) - dipakai utk layar yang cuma perlu
+    // data belakangan ini (mis. dashboard ringkasan), supaya waktu
+    // loading & kuota baca Firestore TIDAK terus membengkak seiring
+    // riwayat data yang menumpuk dari hari ke hari/outlet ke outlet.
+    // CATATAN: query gabungan (outletId + rentang tanggal) perlu
+    // composite index di Firestore - kalau belum ada, Firestore akan
+    // menolak query dan error di console berisi LINK untuk membuat
+    // index itu otomatis (tinggal diklik, tidak perlu bikin manual).
+    async function getByDateRange(storeName, from, to, dateField) {
+        await _waitForOutletReady();
+        const field = dateField || "date";
+        const outletId = currentOutletId();
+        let q = col(storeName);
+        if (OUTLET_SCOPED.has(storeName) && outletId) {
+            q = q.where("outletId", "==", outletId);
+        }
+        q = q.where(field, ">=", from).where(field, "<=", to);
+        const snap = await q.get();
+        return snap.docs.map(d => d.data());
+    }
+
     async function get(storeName, key) {
         if (key === undefined || key === null) return null;
         const doc = await col(storeName).doc(String(key)).get();
@@ -509,7 +531,7 @@ const InvDB = (() => {
     }
 
     return {
-        getAll, get, put, bulkPut, remove, clear, getByIndex,
+        getAll, get, put, bulkPut, remove, clear, getByIndex, getByDateRange,
         getSetting, setSetting, ensureMasterSeed,
         getBusinessDate, setBusinessDate, getLatestEodSnapshot, getEodSnapshot,
         closeBusinessDay, reopenBusinessDay,
