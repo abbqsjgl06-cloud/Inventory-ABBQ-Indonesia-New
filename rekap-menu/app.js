@@ -381,22 +381,26 @@ function renderReport(){
 
     const onlyWithSales = document.getElementById("onlyWithSales").checked;
     const visibleRows = onlyWithSales ? rows.filter(r => r.total > 0) : rows;
-    const colCount = 1 + dates.length + 1; // Nama Menu + tanggal + Total
+    const colCount = dates.length + 1; // tanggal + Total (kolom Menu ada di tabel terpisah)
 
     // Header tanggal - hanya tanggal (MM-DD) supaya ringkas, kolom
     // Kategori & Kode dihilangkan dari tabel (kategori sudah ada
     // sebagai baris judul, kode dipindah jadi subtitle kecil di bawah
     // nama menu) supaya tabel muat di layar HP tanpa perlu digeser.
     const dateHeaderHtml = dates.map(d => `<th class="num">${d.slice(5)}</th>`).join("");
-    document.getElementById("reportHead").innerHTML =
-        `<th>Menu</th>${dateHeaderHtml}<th class="num">Total</th>`;
+    document.getElementById("reportHead").innerHTML = `${dateHeaderHtml}<th class="num">Total</th>`;
 
     // Kategori yang perlu baris subtotal di bawahnya (item lain di
     // luar 2 kategori ini tidak perlu subtotal per kategori).
     const CATEGORIES_WITH_SUBTOTAL = new Set(["Menu Paket", "Menu (in Paket)"]);
 
-    // Body dikelompokkan per kategori dengan baris judul kategori
-    let html = "";
+    // Body dirender jadi 2 set baris SEJAJAR: namesHtml (kolom Menu
+    // saja, masuk ke tabel kiri yang beku/tidak ikut scroll) dan
+    // datesHtml (kolom tanggal + Total, masuk ke tabel kanan yang
+    // bisa digeser). Baris ke-N di 2 tabel ini HARUS selalu representasi
+    // item yang sama - urutan & jumlah baris dijaga identik.
+    let namesHtml = "";
+    let datesHtml = "";
     let currentCat = null;
     let catByDate = {};
     let catTotal = 0;
@@ -404,7 +408,8 @@ function renderReport(){
 
     function flushCategorySubtotal(){
         if(currentCat && CATEGORIES_WITH_SUBTOTAL.has(currentCat)){
-            html += `<tr style="font-weight:700;background:var(--paper);"><td>Total ${currentCat}</td>` +
+            namesHtml += `<tr class="data-row"><td>Total ${currentCat}</td></tr>`;
+            datesHtml += `<tr class="data-row" style="font-weight:700;background:var(--paper);">` +
                 dates.map(d => `<td class="num">${catByDate[d] || ""}</td>`).join("") +
                 `<td class="num">${catTotal}</td></tr>`;
         }
@@ -415,9 +420,11 @@ function renderReport(){
             flushCategorySubtotal();
             currentCat = r.category;
             catByDate = {}; dates.forEach(d => catByDate[d] = 0); catTotal = 0;
-            html += `<tr class="cat-header-row"><td colspan="${colCount}" class="cat-header-cell" style="font-weight:800;background:var(--accent-tint);">${currentCat}</td></tr>`;
+            namesHtml += `<tr class="cat-header-row"><td>${currentCat}</td></tr>`;
+            datesHtml += `<tr class="cat-header-row"><td colspan="${colCount}"></td></tr>`;
         }
-        html += `<tr><td>${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.code}</small></td>` +
+        namesHtml += `<tr class="data-row"><td><span class="menu-name">${r.name}</span><span class="menu-code">${r.code}</span></td></tr>`;
+        datesHtml += `<tr class="data-row">` +
             dates.map(d => `<td class="num">${r.byDate[d] || ""}</td>`).join("") +
             `<td class="num" style="font-weight:700;">${r.total}</td></tr>`;
 
@@ -428,54 +435,16 @@ function renderReport(){
     flushCategorySubtotal(); // subtotal kategori terakhir dalam daftar
 
     if(visibleRows.length === 0){
-        html = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
+        namesHtml = `<tr><td>-</td></tr>`;
+        datesHtml = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
     }
 
-    document.getElementById("reportBody").innerHTML = html;
+    document.getElementById("reportBodyNames").innerHTML = namesHtml;
+    document.getElementById("reportBody").innerHTML = datesHtml;
     document.getElementById("summaryDays").textContent = dates.length;
     document.getElementById("summaryItems").textContent = visibleRows.length;
     document.getElementById("summaryTotal").textContent = grandTotal.toLocaleString("id-ID");
-
-    _syncStickyLeft();
 }
-
-/* ==========================================
-   CSS position:sticky (bahkan dengan prefix -webkit-sticky) ternyata
-   tidak selalu didukung di WebView yang dipakai untuk buka aplikasi
-   ini - kolom "Menu" & baris judul kategori (Voucher, Menu Paket, dst)
-   jadi ikut tergeser saat tabel digeser ke samping, bukannya tetap
-   nempel di kiri. Sebagai gantinya, posisi "nempel di kiri" ini
-   disimulasikan manual pakai transform, mengikuti scrollLeft dari
-   .table-wrap - cara ini tidak bergantung sama sekali pada dukungan
-   sticky di browser/WebView manapun.
-========================================== */
-function _syncStickyLeft(){
-    const wrap = document.getElementById("reportTableWrap");
-    if(!wrap) return;
-    const x = wrap.scrollLeft;
-    document.querySelectorAll("#reportHead th:first-child, #reportBody td:first-child, #reportBody .cat-header-row td.cat-header-cell")
-        .forEach(el => { el.style.transform = x > 0 ? `translateX(${x}px)` : ""; });
-}
-
-// Update transform lewat requestAnimationFrame (bukan langsung di
-// handler scroll) - event scroll bisa nembak lebih cepat dari ritme
-// render/paint browser, jadi kalau ditulis langsung tiap event,
-// hasilnya kolom yang "nempel" keliatan bergetar/telat sepersekian
-// detik dari posisi tabel yang sebenarnya. Dibatasi maksimal 1x per
-// frame supaya gerakannya mulus & selalu sinkron sama tabelnya.
-let _stickyRAF = null;
-function _onTableScroll(){
-    if(_stickyRAF !== null) return;
-    _stickyRAF = requestAnimationFrame(() => {
-        _stickyRAF = null;
-        _syncStickyLeft();
-    });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    const wrap = document.getElementById("reportTableWrap");
-    if(wrap) wrap.addEventListener("scroll", _onTableScroll, { passive: true });
-});
 
 function exportExcel(){
     if(!LAST_RESULT){ toast("Belum ada data untuk diexport","error"); return; }
