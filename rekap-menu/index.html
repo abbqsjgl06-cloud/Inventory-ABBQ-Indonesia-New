@@ -27,7 +27,8 @@
      tetap sejajar.
   ========================================== */
   .report-split{
-    display:flex;
+    display:inline-flex;
+    max-width:100%;
     align-items:flex-start;
     max-height:70vh;
     overflow-y:auto;
@@ -44,7 +45,7 @@
   }
   .report-fixed table{ width:100%; border-collapse:collapse; }
   .report-scroll{
-    flex:1;
+    flex:0 1 auto;
     min-width:0;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
