@@ -1,4 +1,4 @@
-const CACHE_NAME = "abbq-waste-v10";
+const CACHE_NAME = "abbq-waste-v11";
 
 const FILES = [
     "./",

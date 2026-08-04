@@ -24,7 +24,7 @@ function _uiDialogInjectStyles(){
         .ui-dialog-overlay{
             position:fixed;inset:0;background:rgba(28,27,25,.45);
             display:flex;align-items:center;justify-content:center;
-            z-index:9999;padding:20px;
+            z-index:999999;padding:20px;
             font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
         }
         .ui-dialog-box{

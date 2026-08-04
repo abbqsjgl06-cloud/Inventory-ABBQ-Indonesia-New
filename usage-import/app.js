@@ -367,12 +367,24 @@ function processRows(rows, filename){
 
 async function confirmImport(){
     const confirmBtn = document.getElementById("confirmImportBtn");
+
+    // Usage HARUS terikat ke 1 outlet spesifik - kalau switcher masih di
+    // "Semua Outlet" (CURRENT_OUTLET_ID kosong), sebelumnya data tetap
+    // kesimpan tapi TANPA outletId sama sekali (fallback diam-diam jadi
+    // id "shared_..."). Akibatnya data itu tidak akan pernah muncul di
+    // Rekap Menu/Reports outlet manapun - kelihatan seperti "hilang"
+    // padahal sebenarnya tidak pernah tersimpan dengan benar dari awal.
+    if (typeof window === "undefined" || !window.CURRENT_OUTLET_ID) {
+        toast("Pilih outlet spesifik dulu (bukan \"Semua Outlet\") di pojok kiri atas sebelum menyimpan usage. Data usage harus terikat ke 1 outlet.", "error");
+        return;
+    }
+
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = "Menyimpan..."; }
 
     try {
         const periodLabel = document.getElementById("periodLabel").value.trim() || defaultPeriodLabel();
         const importId = "usg_" + Date.now();
-        const outletTag = (typeof window !== "undefined" && window.CURRENT_OUTLET_ID) ? window.CURRENT_OUTLET_ID : "shared";
+        const outletTag = window.CURRENT_OUTLET_ID;
 
         const header = {
             id: importId,
@@ -553,6 +565,9 @@ function toast(msg, type="success"){
 document.addEventListener("authReady", (e) => {
     const box = document.getElementById("adminToolsBox");
     if(box) box.style.display = (e.detail.role === "admin") ? "block" : "none";
+
+    const warnBox = document.getElementById("noOutletWarning");
+    if(warnBox) warnBox.style.display = window.CURRENT_OUTLET_ID ? "none" : "block";
 });
 
 function downloadTemplate(){
