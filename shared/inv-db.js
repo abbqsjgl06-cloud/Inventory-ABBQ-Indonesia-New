@@ -138,8 +138,25 @@ const InvDB = (() => {
             q = q.where("outletId", "==", outletId);
         }
         q = q.where(field, ">=", from).where(field, "<=", to);
-        const snap = await q.get();
-        return snap.docs.map(d => d.data());
+        try {
+            const snap = await q.get();
+            return snap.docs.map(d => d.data());
+        } catch (err) {
+            // Query gabungan (outletId + rentang tanggal) BUTUH composite
+            // index di Firestore. Kalau index-nya belum dibuat, pesan
+            // error asli dari Firestore berisi link teknis yang panjang
+            // (console.firebase.google.com/.../indexes?create_composite=...)
+            // - kalau dibiarkan tampil apa adanya di toast, kelihatan
+            // seperti error mentah/aneh buat user biasa. Log lengkap ke
+            // console (buat admin/developer yang perlu klik link itu utk
+            // BUAT index-nya), tapi lempar pesan yang lebih manusiawi ke
+            // pemanggil/UI.
+            if (String(err.message || "").toLowerCase().includes("index")) {
+                console.error(`[InvDB] Query "${storeName}" butuh Firestore index yang belum dibuat. Buka Firebase Console > Firestore > Indexes, atau klik link di error asli berikut:`, err);
+                throw new Error(`Database belum siap untuk laporan ini (index belum dibuat). Hubungi admin/developer aplikasi.`);
+            }
+            throw err;
+        }
     }
 
     async function get(storeName, key) {
@@ -198,7 +215,19 @@ const InvDB = (() => {
         _assertDocSize(data, storeName);
 
         const docRef = col(storeName).doc(String(docId));
-        await docRef.set(data);
+
+        // .set() BIASANYA cepat (nulis ke cache lokal dulu, itu intinya
+        // offline persistence) - tapi kalau persistence gagal aktif diam-
+        // diam (lihat enablePersistence() di atas, errornya sengaja
+        // di-skip) dan HP benar-benar tanpa sinyal, .set() bisa nunggu
+        // koneksi TANPA BATAS WAKTU dan tombol "Menyimpan..." macet
+        // selamanya tanpa pesan apapun. Dikasih batas waktu di sini
+        // supaya pemanggil PASTI dapat kabar (berhasil atau gagal),
+        // bukan digantung diam-diam.
+        await Promise.race([
+            docRef.set(data),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Koneksi terlalu lambat/terputus. Data belum tersimpan, coba lagi setelah sinyal lebih stabil.")), 15000))
+        ]);
 
         // PENTING: promise dari .set() di atas selesai begitu data
         // tersimpan di cache LOKAL HP (karena offline persistence
@@ -248,7 +277,10 @@ const InvDB = (() => {
                 batch.set(col(storeName).doc(String(docId)), data);
             });
 
-            await batch.commit();
+            await Promise.race([
+                batch.commit(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Koneksi terlalu lambat/terputus saat menyimpan data. Sebagian data mungkin belum tersimpan, coba lagi setelah sinyal lebih stabil.")), 20000))
+            ]);
         }
     }
 
@@ -266,7 +298,10 @@ const InvDB = (() => {
         for (let i = 0; i < docs.length; i += CHUNK) {
             const batch = fs().batch();
             docs.slice(i, i + CHUNK).forEach(d => batch.delete(d.ref));
-            await batch.commit();
+            await Promise.race([
+                batch.commit(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Koneksi terlalu lambat/terputus saat menghapus data. Coba lagi setelah sinyal lebih stabil.")), 20000))
+            ]);
         }
     }
 
