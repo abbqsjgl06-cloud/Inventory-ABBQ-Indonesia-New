@@ -440,18 +440,22 @@ async function confirmImport(){
             });
         });
 
-        // Ketiga bulkPut ini menulis ke koleksi yang BERBEDA-BEDA dan
-        // tidak saling bergantung - sebelumnya ditulis satu-satu berurutan
-        // (nunggu yang pertama kelar baru mulai yang kedua, dst), padahal
-        // bisa jalan BERSAMAAN supaya total waktu tunggu jauh lebih
-        // pendek, terutama untuk file penjualan besar (ratusan/ribuan
-        // baris seperti punya SRSB).
-        if (confirmBtn) confirmBtn.textContent = `Menyimpan ${details.length + dailyMenuRows.length + dailyMaterialRows.length} baris data...`;
-        await Promise.all([
-            InvDB.bulkPut("usageDetail", details),
-            InvDB.bulkPut("usageDailyMenu", dailyMenuRows),
-            InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows)
-        ]);
+        // Ditulis satu-satu berurutan (bukan bersamaan) - sebelumnya
+        // sempat dibuat paralel supaya lebih cepat di koneksi bagus, tapi
+        // di koneksi yang SANGAT lambat (outlet dengan sinyal lemah),
+        // 3 proses tulis besar yang jalan bersamaan malah rebutan sisa
+        // bandwidth yang sama, membuat MASING-MASING lebih gampang
+        // timeout. Progress ditampilkan per tahap supaya tetap kelihatan
+        // jalan, bukan diam di 1 teks.
+        const totalRows = details.length + dailyMenuRows.length + dailyMaterialRows.length;
+        if (confirmBtn) confirmBtn.textContent = `Menyimpan bahan baku (1/3, ${totalRows} baris total)...`;
+        await InvDB.bulkPut("usageDetail", details);
+
+        if (confirmBtn) confirmBtn.textContent = `Menyimpan usage harian menu (2/3)...`;
+        await InvDB.bulkPut("usageDailyMenu", dailyMenuRows);
+
+        if (confirmBtn) confirmBtn.textContent = `Menyimpan usage harian bahan baku (3/3)...`;
+        await InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows);
         // Sebelumnya di sini refreshCoveredDatesCache() dipanggil ulang -
         // itu artinya ambil SELURUH koleksi usageDailyMaterial dari
         // Firestore lagi (termasuk data dari import-import sebelumnya

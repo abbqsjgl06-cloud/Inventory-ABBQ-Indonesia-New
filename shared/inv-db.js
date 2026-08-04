@@ -221,13 +221,26 @@ const InvDB = (() => {
         // diam (lihat enablePersistence() di atas, errornya sengaja
         // di-skip) dan HP benar-benar tanpa sinyal, .set() bisa nunggu
         // koneksi TANPA BATAS WAKTU dan tombol "Menyimpan..." macet
-        // selamanya tanpa pesan apapun. Dikasih batas waktu di sini
-        // supaya pemanggil PASTI dapat kabar (berhasil atau gagal),
-        // bukan digantung diam-diam.
-        await Promise.race([
-            docRef.set(data),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Koneksi terlalu lambat/terputus. Data belum tersimpan, coba lagi setelah sinyal lebih stabil.")), 15000))
-        ]);
+        // selamanya tanpa pesan apapun. Dikasih batas waktu + retry
+        // otomatis di sini supaya pemanggil PASTI dapat kabar (berhasil
+        // atau gagal), dan sinyal yang timbul-tenggelam sebentar tidak
+        // langsung bikin gagal total.
+        let setOk = false, setErr = null;
+        for (let attempt = 1; attempt <= 3 && !setOk; attempt++) {
+            try {
+                await Promise.race([
+                    docRef.set(data),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000))
+                ]);
+                setOk = true;
+            } catch (e) {
+                setErr = e;
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+            }
+        }
+        if (!setOk) {
+            throw new Error("Koneksi terlalu lambat/terputus (sudah dicoba 3x). Data belum tersimpan, coba lagi setelah sinyal lebih stabil.");
+        }
 
         // PENTING: promise dari .set() di atas selesai begitu data
         // tersimpan di cache LOKAL HP (karena offline persistence
@@ -258,29 +271,50 @@ const InvDB = (() => {
         if (!values || values.length === 0) return;
         await _waitForOutletReady();
         const kp = keyPathFor(storeName);
-        const CHUNK = 400; // Firestore batch limit is 500 writes
+        // Diperkecil dari 400 - di koneksi yang sangat lambat (mis. outlet
+        // dengan sinyal lemah), commit yang lebih kecil selesai lebih
+        // cepat per round-trip dan lebih kecil kemungkinan kena timeout
+        // dibanding 1 commit besar berisi ratusan tulisan sekaligus.
+        const CHUNK = 150;
         const outletId = currentOutletId();
         const scoped = OUTLET_SCOPED.has(storeName) && outletId;
 
         for (let i = 0; i < values.length; i += CHUNK) {
             const chunk = values.slice(i, i + CHUNK);
-            const batch = fs().batch();
 
-            chunk.forEach(v => {
-                let docId = v[kp];
-                let data = scoped && !v.outletId ? { ...v, outletId } : v;
-                if (docId === undefined || docId === null || docId === "") {
-                    docId = col(storeName).doc().id;
-                    data = { ...data, [kp]: docId };
+            // Retry otomatis (sampai 3x total) sebelum benar-benar
+            // menyerah - sinyal yang timbul-tenggelam sebentar itu wajar
+            // di lapangan, dan seringkali percobaan ke-2/ke-3 langsung
+            // berhasil tanpa perlu user mengulang manual dari awal.
+            let lastErr = null;
+            let done = false;
+            for (let attempt = 1; attempt <= 3 && !done; attempt++) {
+                try {
+                    const batch = fs().batch();
+                    chunk.forEach(v => {
+                        let docId = v[kp];
+                        let data = scoped && !v.outletId ? { ...v, outletId } : v;
+                        if (docId === undefined || docId === null || docId === "") {
+                            docId = col(storeName).doc().id;
+                            data = { ...data, [kp]: docId };
+                        }
+                        _assertDocSize(data, storeName);
+                        batch.set(col(storeName).doc(String(docId)), data);
+                    });
+
+                    await Promise.race([
+                        batch.commit(),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 30000))
+                    ]);
+                    done = true;
+                } catch (err) {
+                    lastErr = err;
+                    if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt)); // jeda sebelum coba lagi
                 }
-                _assertDocSize(data, storeName);
-                batch.set(col(storeName).doc(String(docId)), data);
-            });
-
-            await Promise.race([
-                batch.commit(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Koneksi terlalu lambat/terputus saat menyimpan data. Sebagian data mungkin belum tersimpan, coba lagi setelah sinyal lebih stabil.")), 20000))
-            ]);
+            }
+            if (!done) {
+                throw new Error(`Koneksi terlalu lambat/terputus saat menyimpan data (sudah dicoba 3x). Sebagian data mungkin belum tersimpan - coba lagi setelah sinyal lebih stabil. (${lastErr && lastErr.message !== "timeout" ? lastErr.message : "timeout"})`);
+            }
         }
     }
 
