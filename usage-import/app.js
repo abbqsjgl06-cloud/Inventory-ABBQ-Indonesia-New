@@ -30,8 +30,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderHistoryPrompt();
 
     MATERIALS_FOR_LOOKUP = await InvDB.getAll("materials");
-    await refreshCoveredDatesCache();
     initDailyUsageAutocomplete();
+
+    // Tidak di-await - ini fetch koleksi usageDailyMaterial yang terus
+    // bertambah tiap kali ada import baru (bisa jadi ribuan dokumen utk
+    // outlet yang sudah lama pakai aplikasi), jadi biar jalan di
+    // belakang tanpa bikin halaman ini nunggu sebelum bisa dipakai.
+    refreshCoveredDatesCache();
 });
 
 let MATERIALS_FOR_LOOKUP = [];
@@ -381,6 +386,7 @@ async function confirmImport(){
             unmatchedMenus: Array.from(UNMATCHED_MENUS)
         };
 
+        if (confirmBtn) confirmBtn.textContent = "Menyimpan header...";
         await InvDB.put("usageImports", header);
 
         // usageDetail - total per bahan baku utk 1 file (dipakai Laporan
@@ -389,7 +395,6 @@ async function confirmImport(){
         const details = Object.entries(USAGE_RESULT).map(([material_code, qty]) => ({
             importId, material_code, qty
         }));
-        await InvDB.bulkPut("usageDetail", details);
 
         // usageDailyMenu - usage MENU per tanggal (dipakai Rekap Menu).
         // ID deterministik (outlet_tanggal_kodemenu) supaya kalau tanggal
@@ -406,7 +411,6 @@ async function confirmImport(){
                 });
             });
         });
-        await InvDB.bulkPut("usageDailyMenu", dailyMenuRows);
 
         // usageDailyMaterial - usage BAHAN BAKU per tanggal (dipakai
         // Forecasting Ordering utk rata-rata harian & pengurangan stock
@@ -423,8 +427,28 @@ async function confirmImport(){
                 });
             });
         });
-        await InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows);
-        await refreshCoveredDatesCache();
+
+        // Ketiga bulkPut ini menulis ke koleksi yang BERBEDA-BEDA dan
+        // tidak saling bergantung - sebelumnya ditulis satu-satu berurutan
+        // (nunggu yang pertama kelar baru mulai yang kedua, dst), padahal
+        // bisa jalan BERSAMAAN supaya total waktu tunggu jauh lebih
+        // pendek, terutama untuk file penjualan besar (ratusan/ribuan
+        // baris seperti punya SRSB).
+        if (confirmBtn) confirmBtn.textContent = `Menyimpan ${details.length + dailyMenuRows.length + dailyMaterialRows.length} baris data...`;
+        await Promise.all([
+            InvDB.bulkPut("usageDetail", details),
+            InvDB.bulkPut("usageDailyMenu", dailyMenuRows),
+            InvDB.bulkPut("usageDailyMaterial", dailyMaterialRows)
+        ]);
+        // Sebelumnya di sini refreshCoveredDatesCache() dipanggil ulang -
+        // itu artinya ambil SELURUH koleksi usageDailyMaterial dari
+        // Firestore lagi (termasuk data dari import-import sebelumnya
+        // yang sudah menumpuk), padahal kita SUDAH TAHU PERSIS tanggal
+        // mana saja yang baru saja ditulis. Untuk outlet yang sudah lama
+        // pakai aplikasi (banyak riwayat import), fetch ulang itu bisa
+        // makan waktu sangat lama dan bikin tombol "Menyimpan..." terlihat
+        // macet padahal datanya sendiri sebenarnya sudah tersimpan.
+        dailyMaterialRows.forEach(r => ALL_DAILY_MATERIAL_DATES.add(r.date));
 
         ALL_IMPORTS.push(header);
         document.getElementById("previewBox").style.display = "none";

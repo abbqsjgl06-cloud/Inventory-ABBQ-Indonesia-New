@@ -10,29 +10,64 @@
 <link rel="stylesheet" href="../shared/inv-style.css?v=42">
 <style>
   :root{ --accent:#B8860B; --accent-tint:#FBEFD1; }
-  thead th{background:var(--accent-tint);position:-webkit-sticky;position:sticky;top:0;}
-  .table-wrap{max-height:70vh;overflow:auto;}
   .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;margin:10px 0;}
 
-  /* Sama seperti Rekap Menu per-outlet: kolom "Menu" ringkas & tidak
-     sticky (biar tidak bentrok waktu tabel digeser ke kanan buat lihat
-     outlet lain - kolomnya memang akan banyak, 1 per outlet). */
+  /* Sama persis dengan Rekap Menu per-outlet: kolom "Menu" dibekukan
+     lewat 2 tabel bersebelahan (bukan position:sticky, yang ternyata
+     tidak didukung penuh di sebagian WebView) - lihat komentar lebih
+     lengkap di rekap-menu/index.html. */
+  .report-split{
+    display:inline-flex;
+    max-width:100%;
+    align-items:flex-start;
+    max-height:70vh;
+    overflow-y:auto;
+    overflow-x:hidden;
+    background:var(--card,#fff);
+    border:1px solid var(--line,#E7E2D9);
+    border-radius:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .report-fixed{
+    flex:none;
+    width:132px;
+    border-right:1px solid var(--line,#E7E2D9);
+  }
+  .report-fixed table{ width:100%; border-collapse:collapse; }
+  .report-scroll{
+    flex:0 1 auto;
+    min-width:0;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .report-scroll table{ border-collapse:collapse; width:max-content; }
+
+  #reportHeadFixed, #reportBodyNames td,
   #reportHead th, #reportBody td{
     font-size:12px;
     padding:6px 8px;
-    white-space:nowrap;
+    box-sizing:border-box;
   }
-  #reportHead th:first-child, #reportBody td:first-child{
-    white-space:normal;
-    max-width:140px;
-  }
-  #reportHead th:last-child, #reportBody td:last-child{
-    font-weight:800;
+  #reportHeadFixed, #reportHead th{
     background:var(--accent-tint);
+    position:-webkit-sticky;position:sticky;top:0;
+    z-index:2;
   }
-  #reportBody td.num{ text-align:right; }
-  .table-wrap table{ min-width:0; }
-  #reportBody .cat-header-row td{ position:static !important; }
+  #reportHead th:last-child{ font-weight:800; }
+  #reportBody td.num{ text-align:right; white-space:nowrap; }
+  #reportBodyNames td{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:132px;
+  }
+
+  tr.data-row{ height:32px; }
+  tr.cat-header-row{ height:30px; }
+  #reportBodyNames tr.cat-header-row td, #reportBody tr.cat-header-row td{
+    background:var(--accent-tint);
+    font-weight:800;
+  }
 
   .scroll-hint{
     font-size:11px;color:var(--muted);margin:6px 2px 0;
@@ -106,11 +141,19 @@
     </div>
 
     <div class="scroll-hint">↔️ Geser tabel ke kanan untuk melihat outlet lainnya. Kolom paling kanan selalu Total semua outlet.</div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr id="reportHead"></tr></thead>
-        <tbody id="reportBody"></tbody>
-      </table>
+    <div class="report-split" id="reportSplit">
+      <div class="report-fixed">
+        <table>
+          <thead><tr><th id="reportHeadFixed">Menu</th></tr></thead>
+          <tbody id="reportBodyNames"></tbody>
+        </table>
+      </div>
+      <div class="report-scroll" id="reportTableWrap">
+        <table>
+          <thead><tr id="reportHead"></tr></thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -128,6 +171,6 @@
 <script src="../shared/auth-guard.js?v=46"></script>
 <script src="../shared/chat-widget.js?v=2"></script>
 <script src="../shared/inv-db.js?v=40"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

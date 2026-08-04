@@ -86,6 +86,27 @@ const SEED_DEFAULT_MENU_LIST = [
 
 let CURATED_MENU_LIST = []; // dimuat dari Firestore "rekapMenuItems" - sama seperti Rekap Menu per-outlet
 
+// Urutan kategori HARUS sama persis dengan Rekap Menu per-outlet supaya
+// susunan tabelnya konsisten di kedua tempat (sebelumnya di sini tidak
+// ada pengurutan sama sekali - kategori tampil dalam urutan apa adanya
+// dari Firestore, jadi bisa beda-beda tiap kali dibuka).
+const CATEGORY_ORDER = [
+    "Voucher", "Menu Paket", "Menu (in Paket)", "Pendamping Paket (P)",
+    "Menu Tambahan (Only Alacarte)", "Minuman", "Dessert", "Makanan Ringan", "Kerupuk"
+];
+
+function sortCuratedList(list){
+    return list.slice().sort((a,b) => {
+        const ia = CATEGORY_ORDER.indexOf(a.category);
+        const ib = CATEGORY_ORDER.indexOf(b.category);
+        const posA = ia === -1 ? CATEGORY_ORDER.length : ia;
+        const posB = ib === -1 ? CATEGORY_ORDER.length : ib;
+        if(posA !== posB) return posA - posB;
+        if(a.category !== b.category) return a.category.localeCompare(b.category);
+        return (Number(a.order) || 0) - (Number(b.order) || 0);
+    });
+}
+
 // Sumbernya SAMA dengan Rekap Menu per-outlet ("Kelola Daftar Menu"),
 // jadi kalau Admin tambah/hapus item di sana, otomatis ikut berubah
 // di sini juga tanpa perlu edit dobel.
@@ -101,7 +122,7 @@ async function loadCuratedMenuList(){
         await InvDB.bulkPut("rekapMenuItems", seedRows);
         rows = seedRows;
     }
-    CURATED_MENU_LIST = rows;
+    CURATED_MENU_LIST = sortCuratedList(rows);
 }
 
 let OUTLETS = [];                     // [{id, name}, ...] terurut sesuai urutan custom di bawah
@@ -232,15 +253,15 @@ function renderReport(){
 
     const onlyWithSales = document.getElementById("onlyWithSales").checked;
     const visibleRows = onlyWithSales ? rows.filter(r => r.total > 0) : rows;
-    const colCount = 1 + outlets.length + 1; // Nama Menu + outlet + Total
+    const colCount = outlets.length + 1; // outlet + Total (kolom Menu ada di tabel terpisah)
 
     const outletHeaderHtml = outlets.map(o => `<th class="num">${o.name}</th>`).join("");
-    document.getElementById("reportHead").innerHTML =
-        `<th>Menu</th>${outletHeaderHtml}<th class="num">Total</th>`;
+    document.getElementById("reportHead").innerHTML = `${outletHeaderHtml}<th class="num">Total</th>`;
 
     const CATEGORIES_WITH_SUBTOTAL = new Set(["Menu Paket", "Menu (in Paket)"]);
 
-    let html = "";
+    let namesHtml = "";
+    let datesHtml = "";
     let currentCat = null;
     let catByOutlet = {};
     let catTotal = 0;
@@ -248,23 +269,27 @@ function renderReport(){
 
     function flushCategorySubtotal(){
         if(currentCat && CATEGORIES_WITH_SUBTOTAL.has(currentCat)){
-            html += `<tr style="font-weight:700;background:var(--paper);"><td>Total ${currentCat}</td>` +
+            namesHtml += `<tr class="data-row"><td>Total ${currentCat}</td></tr>`;
+            datesHtml += `<tr class="data-row" style="font-weight:700;background:var(--paper);">` +
                 outlets.map(o => `<td class="num">${catByOutlet[o.id] || ""}</td>`).join("") +
                 `<td class="num">${catTotal}</td></tr>`;
         }
     }
 
     if(outlets.length === 0){
-        html = `<tr><td colspan="${colCount}" class="empty">Belum ada outlet terdaftar di Master Data.</td></tr>`;
+        namesHtml = `<tr><td>-</td></tr>`;
+        datesHtml = `<tr><td colspan="${colCount}" class="empty">Belum ada outlet terdaftar di Master Data.</td></tr>`;
     } else {
         visibleRows.forEach(r => {
             if(r.category !== currentCat){
                 flushCategorySubtotal();
                 currentCat = r.category;
                 catByOutlet = {}; outlets.forEach(o => catByOutlet[o.id] = 0); catTotal = 0;
-                html += `<tr class="cat-header-row"><td colspan="${colCount}" style="font-weight:800;background:var(--accent-tint);">${currentCat}</td></tr>`;
+                namesHtml += `<tr class="cat-header-row"><td>${currentCat}</td></tr>`;
+                datesHtml += `<tr class="cat-header-row"><td colspan="${colCount}"></td></tr>`;
             }
-            html += `<tr><td>${r.name}<br><small style="color:var(--muted);font-weight:400;">${r.code}</small></td>` +
+            namesHtml += `<tr class="data-row"><td><span class="menu-name">${r.name}</span><span class="menu-code" style="display:block;font-size:11px;color:var(--muted);">${r.code}</span></td></tr>`;
+            datesHtml += `<tr class="data-row">` +
                 outlets.map(o => `<td class="num">${r.byOutlet[o.id] || ""}</td>`).join("") +
                 `<td class="num" style="font-weight:700;">${r.total}</td></tr>`;
 
@@ -275,11 +300,13 @@ function renderReport(){
         flushCategorySubtotal();
 
         if(visibleRows.length === 0){
-            html = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
+            namesHtml = `<tr><td>-</td></tr>`;
+            datesHtml = `<tr><td colspan="${colCount}" class="empty">Tidak ada data pada rentang tanggal ini</td></tr>`;
         }
     }
 
-    document.getElementById("reportBody").innerHTML = html;
+    document.getElementById("reportBodyNames").innerHTML = namesHtml;
+    document.getElementById("reportBody").innerHTML = datesHtml;
     document.getElementById("summaryOutlets").textContent = outlets.length;
     document.getElementById("summaryItems").textContent = visibleRows.length;
     document.getElementById("summaryTotal").textContent = grandTotal.toLocaleString("id-ID");
