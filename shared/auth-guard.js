@@ -353,8 +353,8 @@ function _injectUserBadge(email, role, outletId) {
    (tidak butuh cleanup manual).
 ========================================== */
 
-var PRESENCE_FRESH_MS = 70 * 1000;      // dianggap online kalau heartbeat < 70 detik lalu
-var PRESENCE_INTERVAL_MS = 25 * 1000;   // kirim heartbeat tiap 25 detik
+var PRESENCE_FRESH_MS = 150 * 1000;     // dianggap online kalau heartbeat < 150 detik lalu
+var PRESENCE_INTERVAL_MS = 60 * 1000;   // kirim heartbeat tiap 60 detik (tab aktif)
 
 function _presenceSessionId() {
     try {
@@ -371,8 +371,25 @@ function _presenceSessionId() {
     }
 }
 
+// HEMAT KUOTA: sebelumnya heartbeat menulis ke Firestore tiap 25 detik
+// TANPA HENTI selama tab terbuka, walau tab sedang di-minimize / pindah
+// tab / laptop di-lock. Untuk 13 outlet dengan staf yang membuka
+// aplikasi seharian, ini sendirian bisa menghabiskan puluhan ribu write
+// per hari - jauh lebih besar dari transaksi bisnis yang sesungguhnya.
+//
+// Perbaikan di sini:
+//   1) Interval dinaikkan 25s -> 60s (tetap cukup responsif utk status online)
+//   2) Heartbeat DIHENTIKAN saat tab tidak aktif/di-background (Page
+//      Visibility API), dan langsung "beat" lagi begitu tab aktif kembali
+//   3) PRESENCE_FRESH_MS dinaikkan supaya status "online" tidak flicker
+//      gara-gara jeda heartbeat yang sedikit lebih panjang
+// Efeknya: kalau staf cuma buka tab aktif ~3-4 jam efektif dari 10 jam
+// tab terbuka (sisanya di-background/idle), write presence bisa turun
+// sampai ~70-80% dibanding sebelumnya, tanpa mengubah cara kerja fitur
+// "X online" itu sendiri.
 function _startPresenceHeartbeat(email, role) {
     var sessionId = _presenceSessionId();
+    var timerId = null;
 
     function beat() {
         firebase.firestore().collection("presence").doc(sessionId).set({
@@ -382,8 +399,33 @@ function _startPresenceHeartbeat(email, role) {
         }).catch(function () { /* best effort - ignore offline/permission errors */ });
     }
 
+    function startTimer() {
+        if (timerId) return; // sudah jalan
+        timerId = setInterval(beat, PRESENCE_INTERVAL_MS);
+    }
+
+    function stopTimer() {
+        if (timerId) {
+            clearInterval(timerId);
+            timerId = null;
+        }
+    }
+
+    function handleVisibilityChange() {
+        if (document.visibilityState === "visible") {
+            beat();        // langsung update begitu tab aktif lagi
+            startTimer();
+        } else {
+            stopTimer();   // stop kirim heartbeat selama tab di-background
+        }
+    }
+
     beat();
-    setInterval(beat, PRESENCE_INTERVAL_MS);
+    if (document.visibilityState === "visible") startTimer();
+
+    if (typeof document.addEventListener === "function") {
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
 }
 
 function _watchPresenceCount(email) {
