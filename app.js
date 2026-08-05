@@ -8,7 +8,7 @@ document.addEventListener("authReady", (e) => {
     if (card) card.style.display = "";
   }
   if (e.detail.role === "admin" || e.detail.role === "viewer") {
-    const reportsCard = document.getElementById("reportsCard");
-    if (reportsCard) reportsCard.style.display = "";
+    const rekapSummaryCard = document.getElementById("rekapSummaryCard");
+    if (rekapSummaryCard) rekapSummaryCard.style.display = "";
   }
 });
