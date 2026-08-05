@@ -297,6 +297,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         USAGE_DAILY_MENU = await InvDB.getAll("usageDailyMenu");
         buildIndex();
         await loadCuratedMenuList();
+        // PERBAIKAN: sebelumnya tabel "Kelola Daftar Menu (Admin)" di-render
+        // SEKALI lewat event "authReady" - yang hampir selalu terpicu SEBELUM
+        // loadCuratedMenuList() di atas selesai (karena authReady tidak
+        // menunggu data Firestore, cuma menunggu status login). Akibatnya
+        // tabel itu ke-render dengan CURATED_MENU_LIST yang masih kosong,
+        // dan tidak pernah di-render ulang setelah datanya benar-benar siap
+        // - jadi tabel kelihatan kosong terus walau datanya sebenarnya ada
+        // (laporan di bawahnya tetap normal karena generateReport() dipanggil
+        // belakangan, setelah data siap). Render ulang di sini memastikan
+        // tabel selalu menampilkan daftar yang sesungguhnya sedang dipakai.
+        if(IS_ADMIN) renderAdminMenuItemList();
     } catch(err){
         console.error("Gagal memuat data awal Rekap Menu:", err);
         toast("Gagal memuat data (kemungkinan masalah izin akses Firestore). Cek console / hubungi Admin sistem.", "error");
