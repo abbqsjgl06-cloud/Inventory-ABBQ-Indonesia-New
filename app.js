@@ -7,8 +7,4 @@ document.addEventListener("authReady", (e) => {
     const card = document.getElementById("acctMgmtCard");
     if (card) card.style.display = "";
   }
-  if (e.detail.role === "admin" || e.detail.role === "viewer") {
-    const rekapSummaryCard = document.getElementById("rekapSummaryCard");
-    if (rekapSummaryCard) rekapSummaryCard.style.display = "";
-  }
 });
