@@ -262,7 +262,13 @@ async function refreshUsageAutoList(){
         console.warn("Gagal memuat usageDailyMaterial:", err);
     }
 
-    if(dailyRows.length === 0){
+    const importIdsWithDailyData = new Set(dailyRows.map(d => d.importId));
+    const overlappingImports = USAGE_IMPORTS.filter(u =>
+        u.periodStart && u.periodEnd && u.periodStart <= periodEnd && u.periodEnd >= periodStart
+    );
+    const legacyImports = overlappingImports.filter(u => !importIdsWithDailyData.has(u.id));
+
+    if(dailyRows.length === 0 && legacyImports.length === 0){
         box.innerHTML = `<span style="color:#8C2A1E;">⚠ Tidak ada data usage pada tanggal ${periodStart} s/d ${periodEnd}. Upload dulu di modul Import Usage bila diperlukan.</span>`;
         return;
     }
@@ -270,20 +276,24 @@ async function refreshUsageAutoList(){
     const totalQty = dailyRows.reduce((sum, d) => sum + Number(d.qty || 0), 0);
     const uniqueMaterials = new Set(dailyRows.map(d => d.material_code)).size;
     const datesCovered = new Set(dailyRows.map(d => d.date));
-    const sourceImportIds = new Set(dailyRows.map(d => d.importId));
-    const sourceImports = USAGE_IMPORTS.filter(u => sourceImportIds.has(u.id));
 
-    box.innerHTML = `
+    let html = "";
+    if(dailyRows.length > 0){
+        html += `
         <div style="padding:8px 0;border-bottom:1px solid var(--line);">
-            <b style="color:var(--good);">✓ Usage ${periodStart} s/d ${periodEnd}</b> (persis tanggal ini saja, bukan total keseluruhan file)
+            <b style="color:var(--good);">✓ Usage presisi ${periodStart} s/d ${periodEnd}</b>
             <br><small style="color:var(--muted);">${uniqueMaterials} bahan baku · ${datesCovered.size} tanggal ada data · total qty ${fmt(totalQty)}</small>
-        </div>
-        ${sourceImports.map(u => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--line);">
-                <small style="color:var(--muted);">Sumber file: <b>${u.periodLabel}</b> · ${u.filename}</small>
-            </div>
-        `).join("")}
-    `;
+        </div>`;
+    }
+    if(legacyImports.length > 0){
+        html += `
+        <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+            <b style="color:#8A6D00;">⚠ ${legacyImports.length} file usage lama ikut dihitung PENUH (bukan per-tanggal)</b>
+            <br><small style="color:var(--muted);">File ini tidak punya rincian tanggal per baris (kolom tanggal tidak kebaca saat upload), jadi seluruh isi file dihitung sebagai usage periode ini - bisa kurang presisi kalau file-nya mencakup lebih dari periode yang sedang dianalisa:</small>
+            ${legacyImports.map(u => `<div style="padding:4px 0 0 10px;"><small style="color:var(--muted);">• <b>${u.periodLabel}</b> · ${u.filename} (${u.periodStart} s/d ${u.periodEnd})</small></div>`).join("")}
+        </div>`;
+    }
+    box.innerHTML = html;
 }
 
 /* ================= CALCULATION ================= */
@@ -294,6 +304,28 @@ async function calculateVariance(){
 
     if(!periodStart || !periodEnd){ toast("Lengkapi periode tanggal","error"); return; }
 
+    const calcBtn = document.getElementById("calcVarianceBtn");
+    const originalBtnText = calcBtn ? calcBtn.textContent : "";
+    if(calcBtn){ calcBtn.disabled = true; calcBtn.textContent = "Menghitung..."; }
+
+    try {
+        await _calculateVarianceInner(periodStart, periodEnd);
+    } catch(err){
+        // SEBELUMNYA: kalau ada error di tengah proses (mis. query
+        // gagal, izin Firestore, koneksi putus), function ini berhenti
+        // diam-diam tanpa pesan apapun ke layar - tombol "Hitung
+        // Variance" jadi kelihatan seperti tidak merespon padahal
+        // sebenarnya ada error yang cuma tercatat di console browser
+        // (tidak kelihatan oleh user). Sekarang errornya ditampilkan
+        // jelas lewat toast, supaya ketahuan penyebabnya.
+        console.error("Gagal menghitung variance:", err);
+        toast("Gagal menghitung variance: " + (err.message || err), "error");
+    } finally {
+        if(calcBtn){ calcBtn.disabled = false; calcBtn.textContent = originalBtnText; }
+    }
+}
+
+async function _calculateVarianceInner(periodStart, periodEnd){
     let opening;
     if(OPENING_MODE === "auto" && OPENING_DATA){
         opening = { ...OPENING_DATA.byCode };
@@ -342,6 +374,27 @@ async function calculateVariance(){
     dailyMaterialRows.forEach(d => {
         usage[d.material_code] = (usage[d.material_code] || 0) + Number(d.qty || 0);
     });
+
+    // FALLBACK: import LAMA (sebelum fitur breakdown-per-tanggal ada)
+    // atau file yang kolom tanggalnya tidak kebaca saat upload TIDAK
+    // PUNYA baris di usageDailyMaterial sama sekali - kalau dibiarkan,
+    // usage-nya seolah "hilang" total (0) padahal datanya sebenarnya
+    // ada, cuma tidak presisi per-tanggal. Untuk import semacam itu
+    // SAJA (yang periodenya tumpang tindih dengan periode ini, dan
+    // benar-benar tidak py punya baris harian), tetap pakai total
+    // seluruh file sebagai fallback - sama seperti perilaku lama -
+    // supaya datanya tidak hilang, hanya kurang presisi.
+    const importIdsWithDailyData = new Set(dailyMaterialRows.map(d => d.importId));
+    const overlappingImports = USAGE_IMPORTS.filter(u =>
+        u.periodStart && u.periodEnd && u.periodStart <= periodEnd && u.periodEnd >= periodStart
+    );
+    const legacyImports = overlappingImports.filter(u => !importIdsWithDailyData.has(u.id));
+    for(const imp of legacyImports){
+        const details = await InvDB.getByIndex("usageDetail", "importId", imp.id);
+        details.forEach(d => {
+            usage[d.material_code] = (usage[d.material_code] || 0) + Number(d.qty || 0);
+        });
+    }
 
     // 6. Build unified code list: master items first, then any orphan codes from transactions
     const codeSet = new Map();
